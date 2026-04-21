@@ -1,0 +1,89 @@
+---
+title: "How Scorecard calculates its weighted aggregate score"
+description: "How individual check scores from 0–10 combine into a weighted aggregate, what each risk-level weight means, and the limitations of aggregate scoring."
+---
+
+Scorecard evaluates each check independently and then combines the results into a single aggregate score. Understanding how scoring works helps you interpret results accurately and prioritize improvements.
+
+## Individual check scores
+
+Every check returns a score between 0 and 10, where 10 is the best possible result. Scores are not binary—many checks use partial scoring to reflect degrees of compliance. For example, the Branch-Protection check awards 3 out of 10 for preventing force pushes, 6 out of 10 for also requiring a reviewer, and so on up to 10 for the most comprehensive protection.
+
+### Inconclusive scores
+
+Some checks return `?` instead of a numeric score. This means the check was not applicable to the repository or could not be evaluated:
+
+- **Not applicable:** For example, the Packaging check returns `?` if no releases are detected, since there is nothing to evaluate.
+- **Inconclusive:** The Code-Review check returns `?` if all recent changes were made by bots, because bot activity alone does not provide enough signal to assess human review practices.
+
+A `?` score is excluded from the aggregate calculation—it neither helps nor hurts the overall score.
+
+## Aggregate score calculation
+
+The aggregate score is a **weighted average** of all individual check scores, where each check's weight is determined by its risk level:
+
+| Risk level | Weight |
+|---|---|
+| Critical | 10 |
+| High | 7.5 |
+| Medium | 5 |
+| Low | 2.5 |
+
+The formula is:
+
+```
+aggregate = sum(score_i × weight_i) / sum(weight_i)
+```
+
+Where the sums are taken over all checks that returned a numeric score (checks that returned `?` are excluded from both the numerator and denominator).
+
+### Example
+
+Consider a project with these results:
+
+| Check | Risk | Weight | Score |
+|---|---|---|---|
+| Dangerous-Workflow | Critical | 10 | 10 |
+| Binary-Artifacts | High | 7.5 | 10 |
+| Maintained | High | 7.5 | 1 |
+| Vulnerabilities | High | 7.5 | 10 |
+| Pinned-Dependencies | Medium | 5 | 8 |
+| Security-Policy | Medium | 5 | 0 |
+| License | Low | 2.5 | 10 |
+| Packaging | Medium | 5 | ? *(excluded)* |
+
+Weighted sum of scores: `(10×10) + (10×7.5) + (1×7.5) + (10×7.5) + (8×5) + (0×5) + (10×2.5)` = `100 + 75 + 7.5 + 75 + 40 + 0 + 25` = `322.5`
+
+Sum of weights (excluding `?`): `10 + 7.5 + 7.5 + 7.5 + 5 + 5 + 2.5` = `45`
+
+Aggregate score: `322.5 / 45` ≈ **7.2 / 10**
+
+## What the aggregate score does and does not tell you
+
+The aggregate score provides a single number that summarizes a project's security posture, but it has important limitations:
+
+**The aggregate score does not tell you what specific behaviors a project is or is not following.** Multiple combinations of individual check scores can produce the same aggregate. A project with a 7.0 aggregate might have perfect scores on most checks but a critical gap in one area, or it might have mediocre scores across the board.
+
+**Risk weighting reflects relative importance, not absolute severity.** A Critical-risk check scored at 0 pulls the aggregate down more than a Low-risk check scored at 0, but neither tells you how likely a specific attack is.
+
+**Scores change over time as heuristics are refined.** Scorecard's checks are heuristics—they are updated as the project learns about new attack patterns, improves detection accuracy, and adds new checks. A project's aggregate score may change between scans even if the project itself has not changed, because the scoring logic was updated.
+
+## Limitations and false positives
+
+- **False positives:** A check may flag an issue that does not actually represent a risk for a specific project. For example, the Contributors check may score a single-maintainer project at 0, even though that is an intentional project structure rather than a security gap.
+- **False negatives:** A project may follow good security practices that Scorecard cannot automatically detect. For example, a project using a CI system that Scorecard does not recognize will score low on CI-Tests even if it runs comprehensive tests.
+- **Not a definitive security assessment:** Scorecard is an automated tool designed to surface common heuristics quickly. It is not a substitute for a manual security audit, threat modeling, or penetration testing.
+
+<Tip>
+  Focus on individual check scores and their remediation steps rather than optimizing for the aggregate. Addressing a Critical-risk check scored at 0 provides far more real security benefit than improving several Low-risk checks from 8 to 10.
+</Tip>
+
+## Checks excluded from weekly scan
+
+The [Scorecard REST API](/usage/rest-api) publishes results from weekly scans of the top 1 million open source projects. Three checks are omitted from these scans due to the API costs of running them at scale:
+
+- CI-Tests
+- Contributors
+- Dependency-Update-Tool
+
+These checks are still run when you use the [Scorecard CLI](/usage/cli) or [GitHub Action](/usage/github-action) directly.

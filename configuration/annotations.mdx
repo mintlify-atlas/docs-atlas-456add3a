@@ -1,0 +1,162 @@
+---
+title: "Add maintainer annotations to Scorecard checks"
+description: "Maintainer annotations let you add context to Scorecard results when automated analysis is incomplete, such as for test data or already-remediated issues."
+---
+
+Maintainer annotations let you add context to Scorecard results when the automated assessment doesn't fully capture your project's security practices. When Scorecard flags a finding that doesn't reflect your actual security posture—because the affected files are test data, the issue is already mitigated, or you use a tool that Scorecard doesn't recognize—you can annotate that check to explain the situation to users reading your results.
+
+## Configuration file location
+
+Create a `scorecard.yml` file in the root of your repository. Scorecard also accepts the file at these locations, checked in order:
+
+- `scorecard.yml`
+- `.scorecard.yml`
+- `.github/scorecard.yml`
+
+## File structure
+
+The configuration file uses a top-level `annotations` key. Each entry lists the checks being annotated and the reasons that apply to them.
+
+```yaml scorecard.yml
+annotations:
+  - checks:
+      - binary-artifacts
+    reasons:
+      - reason: test-data
+  - checks:
+      - dangerous-workflow
+    reasons:
+      - reason: remediated
+```
+
+<Note>
+Check names in the configuration file are lowercase and hyphenated. For example, `Binary-Artifacts` becomes `binary-artifacts` and `Pinned-Dependencies` becomes `pinned-dependencies`.
+</Note>
+
+## Annotation types
+
+Scorecard defines five annotation reasons. Each maps to a specific situation where automated analysis produces a result that doesn't reflect the project's actual security posture.
+
+<AccordionGroup>
+  <Accordion title="test-data">
+    Use `test-data` when a check or probe has flagged files or code that exist only for testing or example purposes and are not part of the production codebase.
+
+    **Example:** Binary files checked in to `testdata/` that are used as fixtures in unit tests.
+
+    ```yaml scorecard.yml
+    annotations:
+      - checks:
+          - binary-artifacts
+        reasons:
+          - reason: test-data
+    ```
+  </Accordion>
+
+  <Accordion title="remediated">
+    Use `remediated` when a check has correctly identified a potential danger, but you have already applied a remediation that makes the risk acceptable.
+
+    **Example:** A GitHub Actions workflow uses a dangerous pattern but is gated behind a manual approval step that only maintainers can trigger. A binary artifact is required and present, but its signature and provenance have been verified.
+
+    ```yaml scorecard.yml
+    annotations:
+      - checks:
+          - dangerous-workflow
+        reasons:
+          - reason: remediated
+    ```
+  </Accordion>
+
+  <Accordion title="not-applicable">
+    Use `not-applicable` when a check genuinely does not apply to your project.
+
+    **Example:** A library should not pin its dependencies to specific versions because doing so would conflict with downstream consumers' dependency resolution.
+
+    ```yaml scorecard.yml
+    annotations:
+      - checks:
+          - pinned-dependencies
+        reasons:
+          - reason: not-applicable
+    ```
+  </Accordion>
+
+  <Accordion title="not-supported">
+    Use `not-supported` when you fulfill a check's requirements using a tool or method that Scorecard does not recognize.
+
+    **Example:** Your project uses Clang-Tidy as a SAST tool, but Scorecard does not detect it, so the `SAST` check returns a low score.
+
+    ```yaml scorecard.yml
+    annotations:
+      - checks:
+          - sast
+        reasons:
+          - reason: not-supported
+    ```
+  </Accordion>
+
+  <Accordion title="not-detected">
+    Use `not-detected` when you fulfill a check using a method that Scorecard supports in principle but cannot detect in your specific setup.
+
+    **Example:** Dependabot is configured through repository settings rather than a `dependabot.yml` file, so Scorecard cannot find the configuration file it expects.
+
+    ```yaml scorecard.yml
+    annotations:
+      - checks:
+          - dependency-update-tool
+        reasons:
+          - reason: not-detected
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Examples
+
+### Annotating a single check
+
+```yaml scorecard.yml
+annotations:
+  - checks:
+      - binary-artifacts
+    reasons:
+      - reason: test-data
+```
+
+### Annotating multiple checks with the same reason
+
+You can list multiple checks in a single annotation entry when the same reason applies to all of them.
+
+```yaml scorecard.yml
+annotations:
+  - checks:
+      - binary-artifacts
+      - pinned-dependencies
+    reasons:
+      - reason: test-data
+```
+
+### Applying multiple reasons to a single check
+
+You can apply more than one reason to the same check when different findings have different explanations.
+
+```yaml scorecard.yml
+annotations:
+  - checks:
+      - binary-artifacts
+    reasons:
+      - reason: test-data     # test.exe is only used in unit tests
+      - reason: remediated    # dependency.exe is required but its signature is verified
+```
+
+## Viewing annotations in results
+
+By default, Scorecard output does not display annotations. Pass the `--show-annotations` flag to include them alongside check results.
+
+```bash
+scorecard --repo=github.com/example/project --show-annotations
+```
+
+Annotations appear in the output next to the check they apply to, so users can understand the context behind the score.
+
+<Tip>
+Annotations do not change a check's score. They provide context for users reading the results, but the numeric score remains based on what Scorecard detected automatically.
+</Tip>

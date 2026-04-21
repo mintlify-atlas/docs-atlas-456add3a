@@ -1,0 +1,138 @@
+---
+title: "Add Scorecard to GitHub Actions"
+description: "Automatically run Scorecard on every push to your GitHub repository and surface security alerts directly in the Security tab with zero manual steps."
+---
+
+The [Scorecard GitHub Action](https://github.com/ossf/scorecard-action) is the easiest way for GitHub repository owners to keep a continuous eye on their security posture. The Action runs automatically on every push to your repository, evaluates all default Scorecard checks, and publishes the results as code scanning alerts in your repository's **Security** tab — no local tooling required.
+
+When you enable `publish_results: true`, your scores are also made available through the [Scorecard REST API](/usage/rest-api) and you can display a live [security badge](/usage/badges) on your README.
+
+## Prerequisites
+
+- A GitHub repository where you have write access
+- GitHub Actions enabled on the repository
+- If your repository is private, you need a GitHub Advanced Security license for code scanning alerts
+
+## Setup
+
+<Steps>
+  <Step title="Create the workflow file">
+    In your repository, create the file `.github/workflows/scorecard.yml` with the following content:
+
+    ```yaml .github/workflows/scorecard.yml
+    name: Scorecard supply-chain security
+
+    on:
+      # For branch-protection check. Only the default branch is supported.
+      branch_protection_rule:
+      # To guarantee Recorded Runs for the "Dependency review" feature.
+      schedule:
+        - cron: '20 8 * * 6'
+      push:
+        branches: [ "main" ]
+
+    # Declare default permissions as read only.
+    permissions: read-all
+
+    jobs:
+      analysis:
+        name: Scorecard analysis
+        runs-on: ubuntu-latest
+        permissions:
+          # Needed to upload the SARIF results.
+          security-events: write
+          # Needed to publish results and as a read token
+          # for the "Dependency review" check.
+          id-token: write
+          # Uncomment the permissions below if installing in a private repository.
+          # contents: read
+          # actions: read
+
+        steps:
+          - name: "Checkout code"
+            uses: actions/checkout@v4
+            with:
+              persist-credentials: false
+
+          - name: "Run analysis"
+            uses: ossf/scorecard-action@v2.4.0
+            with:
+              results_file: results.sarif
+              results_format: sarif
+              # (Optional) fine-grained PAT token. Uncomment the PAT token option below,
+              # adding a secret to your repo that contains the PAT:
+              # repo_token: ${{ secrets.SCORECARD_TOKEN }}
+              # Public repositories:
+              #   - Calling without a token will run against the public API.
+              #     Only supported for public repos.
+              repo_token: ${{ secrets.SCORECARD_TOKEN }}
+              # Publish the results for public repositories to enable the
+              # Scorecard badges and REST API.
+              publish_results: true
+
+          # Upload the results as artifacts (optional). Commenting out will
+          # disable uploads of run results in SARIF format to the repository
+          # Actions tab.
+          - name: "Upload artifact"
+            uses: actions/upload-artifact@v4
+            with:
+              name: SARIF file
+              path: results.sarif
+              retention-days: 5
+
+          # Upload the results to GitHub's code scanning dashboard.
+          - name: "Upload to code-scanning"
+            uses: github/codeql-action/upload-sarif@v3
+            with:
+              sarif_file: results.sarif
+    ```
+  </Step>
+
+  <Step title="Create a fine-grained access token (optional)">
+    For public repositories, you can run Scorecard without a token by leaving `repo_token` empty. For higher rate limits or private repositories, create a [classic personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token#creating-a-personal-access-token-classic) with the `public_repo` scope and save it as a repository secret named `SCORECARD_TOKEN`.
+  </Step>
+
+  <Step title="Commit and push">
+    Commit the workflow file and push it to your default branch. The Action will run immediately on push and then weekly on the schedule defined in `cron`.
+  </Step>
+
+  <Step title="View results in the Security tab">
+    After the first successful run, open the **Security** tab of your repository and click **Code scanning alerts**. Each failing check appears as an alert with a description and remediation guidance.
+  </Step>
+</Steps>
+
+## Key configuration options
+
+### `publish_results: true`
+
+Setting `publish_results: true` uploads your results to the OpenSSF infrastructure. This is **required** to:
+
+- Have your project appear in the [Scorecard REST API](/usage/rest-api)
+- Display a [live security badge](/usage/badges) on your README
+
+Without this option, results are only visible within your repository's Security tab.
+
+### Token permissions
+
+The workflow declares `permissions: read-all` at the top level. The `analysis` job then grants two additional write permissions:
+
+- `security-events: write` — required to upload the SARIF file to GitHub Code Scanning
+- `id-token: write` — required to publish results to the OpenSSF API and to support the Dependency-Review check
+
+### Schedule vs. push triggers
+
+The `schedule` trigger runs a weekly scan even without a push. This is important for checks like `Maintained`, which measure activity over time. The `branch_protection_rule` trigger runs whenever you change branch protection settings, ensuring those results are always fresh.
+
+## What appears in results
+
+The weekly scan and REST API results omit three checks that are expensive to run at scale:
+
+- `CI-Tests`
+- `Contributors`
+- `Dependency-Update-Tool`
+
+These checks run normally when you use the [CLI](/usage/cli) directly.
+
+## Further reading
+
+For full installation options, troubleshooting, and advanced configuration (including private repository setup and custom PAT scopes), see the [scorecard-action repository](https://github.com/ossf/scorecard-action).

@@ -1,0 +1,329 @@
+---
+title: "Scorecard checks: scoring criteria and remediation"
+description: "Detailed documentation for all 19 Scorecard checks, including what each check measures, how it scores, and concrete steps to improve your result."
+---
+
+Each Scorecard check evaluates a specific security heuristic and returns a score from 0 to 10. This page documents what each check measures, the risks a low score represents, and the remediation steps you can take to improve your score. Checks are listed alphabetically.
+
+<Note>
+  Scores reflect heuristics and may produce false positives or false negatives. A low score is not always a definitive indicator of risk, and a perfect score does not guarantee security. Heuristics are updated over time as the project evolves.
+</Note>
+
+<AccordionGroup>
+
+  <Accordion title="Binary-Artifacts (High risk)" id="binary-artifacts">
+    **What it checks:** Whether the project has generated executable (binary) artifacts stored in the source repository.
+
+    **Why it matters:** Binary artifacts cannot be reviewed the way source code can. Over time, stored binaries may diverge from the source code they were compiled from, making it impossible to audit what the binary actually does. Including binaries also allows the build process to atrophy, degrading the project's ability to produce verifiable releases.
+
+    Scorecard permits files that are simultaneously source and executable (such as shell scripts), generated source code (such as output from `bison` or `lex`), and generated documentation. It flags compiled executables, `.class` files, `.pyc` files, minified JavaScript, and similar non-reviewable artifacts.
+
+    **Remediation steps:**
+    - Remove generated executable artifacts from the repository.
+    - Build from source instead of committing pre-built binaries.
+  </Accordion>
+
+  <Accordion title="Branch-Protection (High risk)" id="branch-protection">
+    **What it checks:** Whether the project's default and release branches are protected using GitHub branch protection rules or repository rulesets.
+
+    **Why it matters:** Branch protection prevents unauthorized or accidental changes from reaching important branches. Without it, a compromised contributor account could push malicious code directly, history could be silently rewritten via force pushes, and changes could be merged without passing required status checks.
+
+    This check uses tiered scoring. Each tier must be fully satisfied before points from the next tier are awarded.
+
+    | Tier | Points | Requirements |
+    |---|---|---|
+    | 1 | 3/10 | Prevent force push; prevent branch deletion |
+    | 2 | 6/10 | Require at least 1 reviewer; require PRs before changes (admins); require branch up-to-date before merge (admins); require approval of most recent push (admins) |
+    | 3 | 8/10 | Require at least 1 passing status check before merge |
+    | 4 | 9/10 | Require at least 2 reviewers; require review from code owners |
+    | 5 | 10/10 | Dismiss stale reviews when new commits are pushed (admins); include administrators in review requirements (admins) |
+
+    <Note>
+      Requirements marked "(admins)" can only be queried with an admin token. If Scorecard runs without admin access, those requirements are treated as satisfied and scoring is based on the remaining settings. All tier requirements are also accessible via repository rulesets.
+    </Note>
+
+    **GitLab note:** GitLab associates releases with commits rather than branches. Release branch scoring is adjusted accordingly.
+
+    **Remediation steps:**
+    - Enable branch protection in your source hosting provider settings.
+    - For GitHub, configure [repository rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/creating-rulesets-for-a-repository) or [branch protection rules](https://docs.github.com/en/github/administering-a-repository/managing-a-branch-protection-rule).
+  </Accordion>
+
+  <Accordion title="CI-Tests (Low risk)" id="ci-tests">
+    **What it checks:** Whether the project runs tests in a CI system before pull requests are merged. This check is currently limited to GitHub-hosted repositories.
+
+    **Why it matters:** Running automated tests before merging helps catch bugs and vulnerabilities early in the development process, reducing the number of issues that reach production.
+
+    Scorecard looks for well-known CI system names in GitHub `CheckRuns` and `Statuses` across the most recent ~30 commits. A CI system is recognized if its name contains any of: `appveyor`, `buildkite`, `circleci`, `e2e`, `github-actions`, `jenkins`, `mergeable`, `test`, `travis-ci`, or `woodpecker`. Only successfully completed test runs count.
+
+    <Note>
+      Projects using CI systems not in this list may receive a low score even if they run tests. This is a known limitation. If your CI system should be recognized, open an issue in the Scorecard repository.
+    </Note>
+
+    **Remediation steps:**
+    - Add test scripts to your repository that run your full test suite.
+    - Integrate those scripts with a CI/CD platform that runs them on every pull request (for example, GitHub Actions or Prow).
+  </Accordion>
+
+  <Accordion title="CII-Best-Practices (Low risk)" id="cii-best-practices">
+    **What it checks:** Whether the project has earned an [OpenSSF Best Practices Badge](https://www.bestpractices.dev/) at the passing, silver, or gold level.
+
+    **Why it matters:** The OpenSSF Best Practices badge certifies that a project follows a defined set of security-focused development practices. Unlike automated checks, the badge incorporates claims and justifications from the project maintainers, which can address false negatives that automated tools miss.
+
+    Scoring is based on badge level:
+
+    | Badge level | Score |
+    |---|---|
+    | Gold | 10 |
+    | Silver | 7 |
+    | Passing | 5 |
+    | In progress | 2 |
+
+    **Remediation steps:**
+    - Sign up for the [OpenSSF Best Practices program](https://www.bestpractices.dev/) and work toward the passing badge.
+  </Accordion>
+
+  <Accordion title="Code-Review (High risk)" id="code-review">
+    **What it checks:** Whether the project requires human code review before pull requests or merge requests are merged.
+
+    **Why it matters:** Code review catches unintentional vulnerabilities and deters malicious code injection. A reviewer may detect that a contributor's account has been compromised, or identify subtle bugs that automated tools miss. Review by bots—including AI/ML-powered tools—does not count, because it does not provide confidence that a second human understands the change.
+
+    Scorecard checks the most recent ~30 commits for evidence of approval on GitHub (explicit approval, or the merger being different from the committer), Prow labels (`lgtm` or `approved`), or Gerrit review markers (`Reviewed-on` and `Reviewed-by`). If recent changes are solely bot activity, the check returns inconclusive (`?`).
+
+    Scoring is leveled rather than proportional:
+    - If any bot-originated changes are unreviewed: −3 points
+    - If any human changes are unreviewed: −7 points for a single unreviewed change, −3 additional points if multiple changes are unreviewed
+
+    **Remediation steps:**
+    - Require pull request reviews before merging in your repository settings ([GitHub instructions](https://docs.github.com/en/github/administering-a-repository/about-protected-branches#require-pull-request-reviews-before-merging)).
+    - Enforce the rule for administrators and code owners as well.
+    - If your project has only one contributor, recruit additional maintainers to make code review practical.
+  </Accordion>
+
+  <Accordion title="Contributors (Low risk)" id="contributors">
+    **What it checks:** Whether the project has recent contributors from multiple organizations. This check is currently limited to GitHub-hosted repositories.
+
+    **Why it matters:** Projects with contributors from multiple organizations are less likely to suffer from a single point of failure. Organizational diversity in contributors also increases the pool of trusted reviewers.
+
+    Scorecard examines the `Company` field in GitHub user profiles for authors of recent commits. To receive the highest score, the project must have had contributors from at least 3 different companies in the last 30 commits, with each contributor having at least 5 commits in that period.
+
+    <Note>
+      Some projects cannot meet this requirement by design—for example, small utilities maintained by a single person, or narrowly scoped projects that do not attract multi-organization interest. A low score here is informational, not necessarily a risk indicator.
+    </Note>
+
+    **Remediation steps:**
+    - Ask contributors to [join their respective GitHub organizations](https://docs.github.com/en/organizations/managing-membership-in-your-organization/inviting-users-to-join-your-organization) so the `Company` field is populated. There is no other remediation; this check provides insight for trust-based decisions.
+  </Accordion>
+
+  <Accordion title="Dangerous-Workflow (Critical risk)" id="dangerous-workflow">
+    **What it checks:** Whether the project's GitHub Actions workflows contain dangerous code patterns that could allow repository compromise.
+
+    **Why it matters:** Certain workflow patterns can be exploited by attackers to run arbitrary code in the context of the repository, access secrets, or push malicious changes. Two patterns are specifically checked:
+
+    1. **Untrusted code checkout:** A `pull_request_target` or `workflow_run` trigger combined with an explicit checkout of the pull request's code. These triggers run with write permission to the target repository and access to its secrets. Checking out PR code in this context allows PR authors to execute arbitrary code with those elevated permissions.
+
+    2. **Script injection with untrusted context variables:** Inline scripts that use GitHub context variables (such as `github.event.issue.title`) without sanitization. Attackers can inject malicious commands into these variables, which are then executed on the runner.
+
+    A perfect score is awarded when all workflows avoid both patterns.
+
+    **Remediation steps:**
+    - Avoid using `pull_request_target` or `workflow_run` triggers with explicit PR checkouts. See [GitHub's guidance on preventing pwn requests](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/).
+    - Do not pass untrusted context variables directly into inline scripts. See [GitHub's documentation on script injection risks](https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#understanding-the-risk-of-script-injections).
+  </Accordion>
+
+  <Accordion title="Dependency-Update-Tool (High risk)" id="dependency-update-tool">
+    **What it checks:** Whether the project uses an automated dependency update tool. Scorecard currently detects [Dependabot](https://docs.github.com/en/code-security/supply-chain-security/keeping-your-dependencies-updated-automatically/configuration-options-for-dependency-updates) and [Renovate bot](https://docs.renovatebot.com/configuration-options/).
+
+    **Why it matters:** Out-of-date dependencies are a common attack vector. Automated update tools scan for outdated or insecure dependencies and open pull requests to update them, reducing the window of exposure to known vulnerabilities.
+
+    <Note>
+      This check can only detect whether the tool is configured, not whether it is actively running or whether its pull requests are being merged. A configured but ignored tool provides no security benefit.
+    </Note>
+
+    **Remediation steps:**
+    - Add a Dependabot configuration file (`.github/dependabot.yml`) or a Renovate configuration to your repository.
+    - Renovate bot supports migrating Dockerfile dependencies from version pinning to hash pinning via the [`pinDigests` setting](https://docs.renovatebot.com/configuration-options/#pindigests), which also helps the Pinned-Dependencies check.
+    - Note: Dependabot can be enabled for forks where security updates have been turned on previously. Review whether this behavior is acceptable for forks of stable projects.
+  </Accordion>
+
+  <Accordion title="Fuzzing (Medium risk)" id="fuzzing">
+    **What it checks:** Whether the project uses fuzzing to discover bugs. Scorecard checks for:
+    1. The repository name appearing in the [OSS-Fuzz](https://github.com/google/oss-fuzz) project list
+    2. [ClusterFuzzLite](https://google.github.io/clusterfuzzlite/) deployed in the repository
+    3. User-defined fuzzing functions in the repository (currently supports Go fuzzing, Haskell property-based testing with QuickCheck/Hedgehog/validity/SmallCheck, JavaScript/TypeScript with fast-check, Erlang with proper/quickcheck, and C#/F# with FsCheck)
+
+    **Why it matters:** Fuzzing feeds unexpected or random input into a program to expose bugs that structured testing might miss. Attackers also use fuzzing to find exploitable flaws, so projects that do not fuzz are at a disadvantage.
+
+    **Remediation steps:**
+    - Integrate with [OSS-Fuzz](https://google.github.io/oss-fuzz/) by following the project's contribution instructions.
+    - Alternatively, add language-native fuzzing functions to your repository (for example, Go's built-in `testing.F` fuzz functions).
+  </Accordion>
+
+  <Accordion title="License (Low risk)" id="license">
+    **What it checks:** Whether the project has published a license. Scorecard uses the GitHub License API for GitHub-hosted projects, and its own heuristics for others.
+
+    **Why it matters:** Without a license, it is legally unclear how a project's source code may be used. The absence of a license also creates a barrier for security audits and contributions, since potential reviewers may not be permitted to engage with unlicensed code.
+
+    Scorecard detects files named `LICENSE`, `LICENCE`, `COPYING`, or `COPYRIGHT` (with common extensions like `.html`, `.txt`, or `.md`) in the top-level directory or in a `LICENSES` directory. Files in `LICENSES` should be named using their SPDX license identifier.
+
+    Scoring is based on three factors:
+
+    | Factor | Points |
+    |---|---|
+    | A detected `LICENSE`, `COPYRIGHT`, or `COPYING` file (or files in a `LICENSES` directory) | 6/10 |
+    | The file is at the top-level directory | +3/10 |
+    | An FSF or OSI-recognized license is specified | +1/10 |
+
+    **Remediation steps:**
+    - Add a `LICENSE` file to the root of your repository. For GitHub-hosted projects, follow [GitHub's licensing instructions](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository).
+    - Use an [SPDX license identifier](https://spdx.org/licenses/) in the filename (for example, `LICENSE-Apache-2.0.md`) to receive full scoring credit.
+  </Accordion>
+
+  <Accordion title="Maintained (High risk)" id="maintained">
+    **What it checks:** Whether the project is actively maintained, based on commit frequency and issue activity.
+
+    **Why it matters:** An unmaintained project is unlikely to receive security patches, have its dependencies updated, or have vulnerabilities addressed in a timely manner. Users depending on an unmaintained project are exposed to accumulated risk.
+
+    Scoring criteria:
+    - Archived projects receive a score of 0.
+    - At least one commit per week in the previous 90 days earns the highest score.
+    - Activity on issues from collaborators, members, or owners contributes a partial score.
+    - Projects younger than 90 days are not scored; they are too new to assess maintenance status.
+
+    <Note>
+      Some software does not require active maintenance—for example, a small utility that implements a stable algorithm. A low score here is informational and should be evaluated in context.
+    </Note>
+
+    **Remediation steps:**
+    - No direct remediation; this check provides insight into project activity. If your project is actively maintained but the check scores it low, ensure that issue activity is from users who are designated as collaborators, members, or owners.
+  </Accordion>
+
+  <Accordion title="Packaging (Medium risk)" id="packaging">
+    **What it checks:** Whether the project publishes official packages from its CI/CD pipeline. This check is currently limited to GitHub-hosted repositories.
+
+    **Why it matters:** Publishing packages from CI/CD rather than local developer machines provides a reproducible, auditable build process. It makes it easier for users to receive security updates as package upgrades, and provides clear versioning so users can determine whether a specific vulnerability applies to the version they are using.
+
+    Scorecard looks for [GitHub packaging workflows](https://docs.github.com/en/packages/learn-github-packages/publishing-a-package) and language-specific GitHub Actions that upload packages to hubs such as npm or PyPI.
+
+    **Remediation steps:**
+    - Publish your project using [GitHub's package publishing mechanisms](https://docs.github.com/en/packages/learn-github-packages/publishing-a-package).
+    - Use a GitHub Actions workflow to release packages to language-specific hubs (npm, PyPI, RubyGems, etc.).
+  </Accordion>
+
+  <Accordion title="Pinned-Dependencies (Medium risk)" id="pinned-dependencies">
+    **What it checks:** Whether the project pins the dependencies used during its build and release process to specific hashes. Scorecard checks Dockerfiles, shell scripts, and GitHub Actions workflows. This check is currently limited to GitHub-hosted repositories.
+
+    A "pinned dependency" is one explicitly set to a full commit hash rather than a mutable version or version range. Go modules using full semantic versions are treated as pinned because the Go toolchain verifies downloaded content against stored hashes.
+
+    **Why it matters:** Pinning dependencies provides several security guarantees:
+    - Ensures all builds use identical software, enabling reproducibility and simplifying debugging.
+    - Mitigates supply chain attacks where a later version of a dependency is compromised—if you evaluated and pinned a known-good version, a subsequent compromise does not affect you.
+    - Defends against dependency confusion (substitution) attacks, where an attacker publishes a malicious package to trick package managers into using it.
+
+    Pinning also has a downside: it can cause security updates to be missed. Mitigate this by using automated dependency update tools (see the Dependency-Update-Tool check) to detect and propose updates to pinned versions.
+
+    **Remediation steps:**
+    - For application dependencies, declare all dependencies with specific versions in your package manifest (`package.json`, `requirements.txt`, `packages.config`, etc.) and commit any lock files (`package-lock.json`, etc.).
+    - For Dockerfiles, pin base images by hash: `FROM ubuntu@sha256:<hash>`.
+    - For GitHub Actions workflows, pin actions by full commit SHA: `uses: actions/checkout@<sha>`.
+    - Use [StepSecurity's workflow hardening tool](https://app.stepsecurity.io/secureworkflow/) to automate pinning.
+  </Accordion>
+
+  <Accordion title="SAST (Medium risk)" id="sast">
+    **What it checks:** Whether the project uses Static Application Security Testing (SAST) tools to analyze source code for vulnerabilities. This check is currently limited to GitHub-hosted repositories.
+
+    **Why it matters:** SAST tools analyze source code before the application runs, catching known classes of bugs—such as SQL injection, XSS, or buffer overflows—before they are merged. Running SAST on every pull request prevents known vulnerability patterns from being introduced inadvertently.
+
+    Scorecard looks for [CodeQL](https://codeql.github.com/) (`github-code-scanning`) or [SonarCloud](https://sonarcloud.io/) in recent (~30) merged PRs, or the use of `github/codeql-action` in a GitHub workflow.
+
+    **Remediation steps:**
+    - Enable CodeQL in your CI/CD by following [GitHub's CodeQL setup instructions](https://github.com/github/codeql-action#usage).
+  </Accordion>
+
+  <Accordion title="Security-Policy (Medium risk)" id="security-policy">
+    **What it checks:** Whether the project has published a security policy, typically a `SECURITY.md` file in a well-known directory.
+
+    **Why it matters:** A security policy tells users what constitutes a vulnerability in the project, how to report it privately, and what response timeline to expect. Without one, vulnerability reporters may disclose issues publicly, giving attackers a head start before a fix is available.
+
+    Scorecard awards points based on the contents of the security policy:
+
+    | Factor | Points |
+    |---|---|
+    | A valid contact email or URL for reporting vulnerabilities | 6/10 |
+    | Free-form text beyond just a link or email address | +3/10 |
+    | Specific text about vulnerability disclosure practices, expectations, or timelines (2+ matches of terms like "vuln", "disclos", or time references like "30 days") | +1/10 |
+
+    **Remediation steps:**
+    - Create a `SECURITY.md` file in the root of your repository.
+    - Include a clear description of what constitutes a vulnerability, a secure way to report it (such as private issue tracking or an encrypted email address with a public key), and an expected response timeline.
+    - Follow the [coordinated vulnerability disclosure guidelines](https://github.com/ossf/oss-vulnerability-guide/blob/main/maintainer-guide.md).
+  </Accordion>
+
+  <Accordion title="Signed-Releases (High risk)" id="signed-releases">
+    **What it checks:** Whether the project cryptographically signs its release artifacts. This check is currently limited to GitHub-hosted repositories.
+
+    **Why it matters:** Signed releases allow users to verify that a release artifact was produced by the project and has not been tampered with. Without signatures, a compromised distribution channel could serve malicious artifacts indistinguishable from legitimate releases.
+
+    Scorecard checks the last five release assets for signature files with these extensions: `.minisig`, `.asc` (PGP), `.sig`, `.sign`, `.sigstore`, `.sigstore.json`, `.intoto.jsonl` (SLSA provenance).
+
+    Scoring:
+    - Signature file found in assets for each release: **8/10**
+    - SLSA provenance file (`.intoto.jsonl`) found in assets for each release: **10/10**
+
+    <Note>
+      Scorecard detects the presence of signature files but does not verify the signatures themselves.
+    </Note>
+
+    **Remediation steps:**
+    - For each release, generate a signing key and sign the release archive, then attach the signature file as a release asset.
+    - For a higher score, generate [SLSA provenance](https://slsa.dev) using the OpenSSF's [slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator) and attach the `.intoto.jsonl` file to each release.
+    - See [Debian's guide to signed GitHub releases](https://wiki.debian.org/Creating%20signed%20GitHub%20releases) for step-by-step instructions.
+  </Accordion>
+
+  <Accordion title="Token-Permissions (High risk)" id="token-permissions">
+    **What it checks:** Whether GitHub Actions workflow tokens follow the principle of least privilege—specifically, whether top-level workflow permissions are set to read-only, with required write permissions declared only at the job level. This check is currently limited to GitHub-hosted repositories.
+
+    **Why it matters:** GitHub Actions workflows run with a `GITHUB_TOKEN` that has permissions to act on the repository. If a workflow dependency is compromised, an overly permissive token can be used to push malicious code, approve pull requests, or publish packages. Restricting top-level permissions to read-only limits the blast radius of any such compromise.
+
+    Scorecard awards the highest score when:
+    - Top-level permissions are set to `read-all` or `contents: read`
+    - Any required write permissions are declared at the job level only
+
+    One point is deducted if all jobs have permissions defined but the top level is not restricted—this is still secure but leaves room for human error when new jobs are added.
+
+    The following run-level write permissions are flagged as warnings (but do not reduce the score):
+    - `actions`, `checks`, `contents`, `deployments`, `packages`, `security-events`, `statuses`
+
+    **Remediation steps:**
+    - Add `permissions: contents: read` (or `permissions: read-all`) to the top level of each workflow file.
+    - Declare only the specific write permissions each job needs at the `jobs.<job_id>.permissions` level.
+    - Use [StepSecurity's workflow hardening tool](https://app.stepsecurity.io/secureworkflow/) to identify and set the correct permissions automatically.
+  </Accordion>
+
+  <Accordion title="Vulnerabilities (High risk)" id="vulnerabilities">
+    **What it checks:** Whether the project has open, unfixed vulnerabilities in its own codebase or its dependencies, using the [OSV (Open Source Vulnerabilities)](https://osv.dev/) service.
+
+    **Why it matters:** Open vulnerabilities are actively exploitable by attackers. The longer a known vulnerability remains unfixed, the greater the window of opportunity for exploitation. This check covers both direct and (for most languages) indirect (transitive) dependencies.
+
+    **Remediation steps:**
+    - Fix vulnerabilities in your own codebase. Vulnerability details are available at [osv.dev](https://osv.dev).
+    - For vulnerable dependencies, update to a non-vulnerable version, or replace or remove the dependency if no fix is available.
+    - If a vulnerability does not affect your project (for example, due to how you use the library), you can suppress it by creating an `osv-scanner.toml` file next to the dependency manifest and specifying the ID to ignore with a justification. See the [OSV-Scanner documentation](https://github.com/google/osv-scanner#ignore-vulnerabilities-by-id) for the file format.
+  </Accordion>
+
+  <Accordion title="Webhooks (Critical risk, experimental)" id="webhooks">
+    **What it checks:** Whether webhooks configured in the repository have a secret token set to authenticate the origin of incoming requests.
+
+    **Why it matters:** Webhooks without authentication can be triggered by any third party, allowing attackers to send forged payloads that trigger automated actions in your CI/CD pipeline or other integrated services. Configuring a secret token ensures that only the legitimate source can trigger the webhook.
+
+    <Warning>
+      This check is experimental. Results may be incomplete or inaccurate. It requires a maintainer PAT with `admin:repo_hook` or `read:repo_hook` scope.
+    </Warning>
+
+    **Remediation steps:**
+    - Check whether the service your webhook is configured with supports secret tokens.
+    - If token authentication is supported, configure the secret in the webhook settings. See [GitHub's webhook setup guide](https://docs.github.com/en/developers/webhooks-and-events/webhooks/creating-webhooks#setting-up-a-webhook).
+    - If the service does not support token authentication, request that the service implement it by following [GitHub's webhook security guide](https://docs.github.com/en/developers/webhooks-and-events/webhooks/securing-your-webhooks).
+  </Accordion>
+
+</AccordionGroup>

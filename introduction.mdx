@@ -1,0 +1,53 @@
+---
+title: "OpenSSF Scorecard: automated open source security metrics"
+description: "Scorecard automatically evaluates open source projects against security best practices, scoring each check 0–10 so you can identify and fix weaknesses."
+---
+
+OpenSSF Scorecard is an automated tool that assesses open source projects against a set of security heuristics — called "checks" — and assigns each a score from 0 to 10. You can use these scores to understand specific areas to improve in your own project, or to evaluate the risk that a dependency introduces before adopting it.
+
+Scorecard has been run on thousands of projects to monitor and track security metrics. Prominent projects using Scorecard include [Tensorflow](https://github.com/tensorflow/tensorflow), [Angular](https://github.com/angular/angular), and [Flutter](https://github.com/flutter/flutter). You can view pre-calculated scores for any scanned project at [scorecard.dev/viewer](https://scorecard.dev/viewer/).
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run your first Scorecard scan in minutes using the CLI or GitHub Action.
+  </Card>
+  <Card title="Checks reference" icon="shield-check" href="/checks/reference">
+    Explore all security checks, their scoring criteria, and remediation steps.
+  </Card>
+  <Card title="GitHub Action" icon="github" href="/usage/github-action">
+    Add continuous security monitoring to any GitHub repository in one step.
+  </Card>
+  <Card title="REST API" icon="code" href="/usage/rest-api">
+    Query pre-calculated scores for millions of open source projects instantly.
+  </Card>
+</CardGroup>
+
+## Goals and non-goals
+
+Scorecard exists to automate analysis and trust decisions on the security posture of open source projects. The goal is to provide data you can use to proactively improve the security posture of the critical projects the world depends on, and to measure adherence to existing policies.
+
+Scorecard is not a definitive requirement that all projects should follow. Every result is opinionated: which checks are included, how they are weighted, and how scores are calculated. The checks are heuristics — there are false positives and false negatives. An aggregate score alone tells you nothing about which individual behaviors a repository is or is not performing.
+
+<Note>
+  Scorecard's results are a starting point for improvement, not a pass/fail grade. Use them alongside your own judgment about what matters for your project and its users.
+</Note>
+
+## How scoring works
+
+Each check returns a score from 0 to 10. Scorecard also produces a weighted aggregate score based on each check's risk level:
+
+- **Critical** risk checks are weighted at 10
+- **High** risk checks are weighted at 7.5
+- **Medium** risk checks are weighted at 5
+- **Low** risk checks are weighted at 2.5
+
+See the [scoring reference](/checks/scoring) and the [full checks reference](/checks/reference) for each check's risk level and scoring criteria.
+
+## View scores for any project
+
+To see scores for projects regularly scanned by Scorecard, visit the web viewer at `https://scorecard.dev/viewer/?uri=<platform>/<owner>/<repo>`. For example:
+
+- `https://scorecard.dev/viewer/?uri=github.com/ossf/scorecard`
+- `https://scorecard.dev/viewer/?uri=gitlab.com/fdroid/fdroidclient`
+
+To scan a project that is not in the web viewer, use the [Scorecard CLI](/usage/cli).

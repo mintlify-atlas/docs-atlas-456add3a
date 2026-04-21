@@ -1,0 +1,190 @@
+---
+title: "Beginner's guide to improving your Scorecard score"
+description: "The highest-impact Scorecard checks for new maintainers: securing dependencies, restricting workflow tokens, branch protection, and publishing packages."
+---
+
+Getting started with Scorecard can feel overwhelming—there are 19 checks, and not all of them will apply equally to your project. This guide walks through the highest-impact checks to start with, organized by stage of the development lifecycle: setting up your project, managing contributions, and packaging for release.
+
+<Note>
+  Not every check on this page will be relevant to every project. See [Customizing checks to your project's needs](#customizing-checks-to-your-projects-needs) at the end of this guide for guidance on which checks to skip.
+</Note>
+
+## 1. Setting up your project
+
+Start by securing your project's dependencies and automated workflows. These checks have the biggest payoff relative to the effort required, and the improvements you make are mostly "set it and forget it."
+
+### Secure your dependencies with Vulnerabilities and Dependency-Update-Tool
+
+Vulnerabilities in dependencies are one of the most common attack vectors for open source projects. Scorecard's **Vulnerabilities** check queries the [OSV (Open Source Vulnerabilities)](https://osv.dev/) service to identify known vulnerabilities in your project's direct and—for most languages—indirect (transitive) dependencies. Tracking transitive dependencies matters: [95% of vulnerable dependencies are transitive](https://www.endorlabs.com/state-of-dependency-management).
+
+If the Vulnerabilities check finds issues, your options are:
+
+- Update the affected dependency to a non-vulnerable version (if available).
+- Submit a patch to the vulnerable upstream project.
+- Replace the dependency with a non-vulnerable alternative.
+- Remove the dependency and implement the functionality yourself.
+- If you are certain the vulnerability does not affect your project's usage of the library, suppress it by creating an `osv-scanner.toml` file in your project root:
+
+```toml
+[[IgnoredVulns]]
+id = "GHSA-xxxx-xxxx-xxxx"
+reason = "We do not use the affected code path."
+```
+
+Once known vulnerabilities are addressed, make sure your own codebase does not have open, unfixed vulnerabilities reported against it.
+
+The **Dependency-Update-Tool** check encourages you to keep dependencies up to date automatically. It awards a high score when your project uses [Dependabot](https://docs.github.com/code-security/dependabot) or [Renovate bot](https://docs.renovatebot.com/)—tools that open pull requests automatically when new dependency versions or security patches are available.
+
+To enable Dependabot for your GitHub repository, create `.github/dependabot.yml`:
+
+```yaml
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+```
+
+Replace `npm` with the appropriate ecosystem for your project (`pip`, `cargo`, `maven`, `gomod`, etc.). Dependabot supports most major package ecosystems.
+
+<Tip>
+  Enabling a dependency update tool only improves your score if you actually review and merge the pull requests it opens. Configure the tool, then commit to acting on its output.
+</Tip>
+
+### Secure your workflows with Token-Permissions
+
+The **Token-Permissions** check verifies that your GitHub Actions workflows follow the principle of least privilege: top-level token permissions should be read-only, with write permissions granted only to the specific jobs that need them.
+
+By default, GitHub Actions workflows may have broad write access to your repository. If a workflow dependency is ever compromised, an attacker could use that access to push malicious code, publish packages, or manipulate pull request checks.
+
+To fix this, add a top-level `permissions` block to each of your workflow files:
+
+```yaml
+name: CI
+
+on: [push, pull_request]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm test
+```
+
+If a specific job requires write access—for example, a job that publishes a release—grant only that permission at the job level:
+
+```yaml
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/release.sh
+```
+
+When adding a new GitHub Action to your workflow, check the Action's README to see if it requires additional permissions. This information is usually documented prominently.
+
+---
+
+## 2. Manage contributions to your project
+
+As your project grows and starts receiving contributions from others, you need controls to ensure that changes are vetted before they reach your main branch. The Branch-Protection check is the most effective tool for this.
+
+### Reduce errors and hacks with Branch-Protection
+
+The **Branch-Protection** check evaluates whether your default and release branches are protected against unvetted changes. Branch protection rules let you enforce specific workflows before a change is accepted.
+
+Two options provide the most security value:
+
+<Steps>
+  <Step title="Require code review">
+    If your project has more than one maintainer, require at least one reviewer to approve changes before they are merged. This is one of the strongest protections available—it means a single compromised account cannot unilaterally push malicious code.
+
+    Enable this in your GitHub repository under **Settings → Branches → Branch protection rules → Require a pull request before merging**.
+
+    Enabling code review also improves your **Code-Review** check score.
+  </Step>
+  <Step title="Require status checks">
+    Require that all CI tests pass before a pull request can be merged. This catches mistakes early and prevents broken code from reaching your main branch.
+
+    Enable this under **Settings → Branches → Branch protection rules → Require status checks to pass before merging**, then select the specific CI checks that must pass.
+
+    Requiring status checks also improves your **CI-Tests** check score.
+  </Step>
+</Steps>
+
+<Note>
+  Requiring code review is not always practical. If you are the sole maintainer, or your project has limited active participation, start with status checks instead. You can always add review requirements as your contributor base grows.
+</Note>
+
+---
+
+## 3. Package and release your project
+
+When you are ready to share your project with the world, how you build and distribute it has security implications. The Packaging check guides you toward a more secure release process.
+
+### Verify your project is published as a package with Packaging
+
+The **Packaging** check evaluates whether your project is published as a package using your CI/CD pipeline—rather than being built and uploaded manually from a developer's local machine.
+
+Publishing from CI/CD provides several security benefits:
+
+- **Reproducibility:** Every user downloads the same artifact that your CI/CD system produced from your reviewed source code—not something built on a developer's laptop that may have had local modifications.
+- **Auditability:** The build process is defined in code (your workflow files) and is visible to contributors and users.
+- **Versioning:** Package releases have clear version numbers, making it straightforward to track whether a newly discovered vulnerability affects a given release.
+- **Easier updates:** When you publish security patches as package updates, users can update with a single command rather than having to manually replace files.
+
+Scorecard looks for [GitHub packaging workflows](https://docs.github.com/en/packages/learn-github-packages/publishing-a-package) and GitHub Actions that publish to language-specific hubs like npm, PyPI, or RubyGems.
+
+A minimal example of a GitHub Actions workflow that publishes an npm package on a new release:
+
+```yaml
+name: Publish
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+---
+
+## Customizing checks to your project's needs
+
+Not every Scorecard check applies to every project. Before spending time improving a low score, consider whether the check is relevant to your situation:
+
+- **Single-maintainer projects:** The Code-Review check is not practical if you are the only contributor. The Contributors check will also score low by design—this is expected and does not represent a risk.
+- **C/C++ projects:** The Packaging and Dependency-Update-Tool checks are less applicable because the C/C++ ecosystem does not have a centralized package manager.
+- **Projects without releases:** The Packaging and Signed-Releases checks will return `?` (inconclusive) if your project has no releases. This does not affect your aggregate score.
+- **Projects without webhooks:** The Webhooks check only applies if you have configured webhooks on your repository.
+
+<Tip>
+  Use the `--checks` flag with the Scorecard CLI to run only the checks relevant to your project. For example: `scorecard --repo=github.com/your-org/your-repo --checks=Vulnerabilities,Branch-Protection,Token-Permissions`
+</Tip>
+
+For the complete list of all checks with detailed scoring criteria and remediation guidance, see the [Scorecard checks reference](/checks/reference).

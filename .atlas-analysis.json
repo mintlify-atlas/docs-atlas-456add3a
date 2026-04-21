@@ -1,0 +1,109 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "OpenSSF Scorecard",
+  "projectDescription": "An automated security health metrics tool that assesses open source projects against best practices and assigns each check a score of 0-10.",
+  "theme": "aspen",
+  "primaryColor": "#04dc83",
+  "lightColor": "#040404",
+  "darkColor": "#0c3454",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation",
+              "authentication"
+            ]
+          },
+          {
+            "group": "Usage",
+            "pages": [
+              "usage/cli",
+              "usage/github-action",
+              "usage/rest-api",
+              "usage/badges",
+              "usage/public-data"
+            ]
+          },
+          {
+            "group": "Checks",
+            "pages": [
+              "checks/overview",
+              "checks/reference",
+              "checks/scoring",
+              "checks/beginner-guide"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/annotations",
+              "configuration/policy"
+            ]
+          },
+          {
+            "group": "Probes",
+            "pages": [
+              "probes/overview",
+              "probes/reference"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Contributing",
+        "groups": [
+          {
+            "group": "Developer Guide",
+            "pages": [
+              "contributing/overview",
+              "contributing/writing-checks",
+              "contributing/adding-probes"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/faq",
+              "reference/roadmap"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Automated security checks for open source projects on GitHub and GitLab",
+    "18+ security checks covering branch protection, code review, dependency management, and more",
+    "Probe-based architecture for fine-grained, composable security analysis",
+    "GitHub Action integration for continuous security monitoring",
+    "REST API for querying pre-calculated scores of 1M+ open source projects",
+    "Maintainer annotations to provide context for check results",
+    "Multiple output formats: default, JSON, SARIF, in-toto",
+    "Policy files for enforcing security requirements in CI/CD",
+    "Support for GitHub, GitLab, and Azure DevOps repositories",
+    "Public BigQuery dataset with weekly scans of top open source projects"
+  ],
+  "publicApiSurface": [
+    "scorecard --repo=<repo>",
+    "scorecard --local=<folder>",
+    "scorecard --org=<organization>",
+    "scorecard --npm=<package> / --pypi=<package> / --rubygems=<package> / --nuget=<package>",
+    "scorecard --checks=<check1,check2,...>",
+    "scorecard --probes=<probe1,probe2,...>",
+    "scorecard --format=<default|json|sarif|probe|raw|intoto>",
+    "scorecard --show-details",
+    "scorecard --show-annotations",
+    "scorecard --policy=<policy-file>",
+    "scorecard serve",
+    "scorecard version",
+    "scorecard.Run(ctx, repo, opts...) (pkg/scorecard)",
+    "GET|POST / (HTTP serve endpoint)",
+    "GET /health (HTTP serve health check)"
+  ]
+}

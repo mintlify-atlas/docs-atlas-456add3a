@@ -1,0 +1,232 @@
+---
+title: "Add new probes to extend Scorecard security checks"
+description: "Create a Scorecard probe: directory layout, def.yml schema, Go implementation, registering with a check, lifecycle stages, and test coverage requirements."
+---
+
+Probes are the building blocks beneath Scorecard checks. Each probe is a focused heuristic that evaluates one specific behavior a project may or may not follow, returning one or more findings with an outcome, a message, and an optional file location. Checks compose probe findings into a final 0–10 score.
+
+Adding a probe is the right approach when you want to extend an existing check with a new signal, or when a new check is best expressed as a collection of individual behaviors.
+
+## Probe structure
+
+Every probe lives in its own subdirectory under `probes/` and contains three files:
+
+```
+probes/
+└── myProbeName/
+    ├── def.yml        # Documentation and metadata
+    ├── impl.go        # Implementation
+    └── impl_test.go   # Tests
+```
+
+Probe directories use camelCase names that describe the behavior being assessed, phrased so the name can be answered with "true" or "false". For example: `hasBinaryArtifacts`, `requiresApproversForPullRequests`, `pinsDependencies`.
+
+## Lifecycle stages
+
+Every probe is in one of three lifecycle states, declared in `def.yml`:
+
+| State | Stability guarantee |
+|-------|---------------------|
+| `experimental` | Semantics may change; no stability guarantees |
+| `stable` | Behavior and semantics will not change; bug fixes only |
+| `deprecated` | No longer maintained; callers should stop using it |
+
+New probes should start as `experimental` and graduate to `stable` once their behavior is well-understood.
+
+## How to create a new probe
+
+<Steps>
+  <Step title="Create the probe directory">
+    Create a new directory under `probes/` with a camelCase name describing the behavior:
+
+    ```bash
+    mkdir probes/myProbeName
+    ```
+  </Step>
+
+  <Step title="Write def.yml">
+    The `def.yml` file documents the probe: what it checks, why it matters, what outcomes it produces, and how to remediate.
+
+    ```yaml
+    id: myProbeName
+    lifecycle: experimental
+    short: Checks if the project does X.
+    motivation: >
+      A short explanation of why this behavior matters for security.
+    implementation: >
+      A description of how the probe detects this behavior.
+    outcome:
+      - If the probe finds X, it returns OutcomeTrue for each instance found.
+      - If the probe finds no X, it returns a single OutcomeFalse.
+    remediation:
+      onOutcome: True
+      effort: Low
+      text:
+        - Step one to address the finding.
+        - Step two to address the finding.
+    ecosystem:
+      languages:
+        - all
+      clients:
+        - github
+        - gitlab
+        - localdir
+    ```
+
+    You can also display dynamic content in `def.yml` by using `${{ metadata.key }}` placeholders and setting matching metadata in `impl.go` via `f.WithRemediationMetadata(...)`.
+  </Step>
+
+  <Step title="Implement the probe in impl.go">
+    The implementation uses Go's `embed` package to load `def.yml` and returns a slice of `finding.Finding` values.
+
+    ```go
+    package myProbeName
+
+    import (
+        "embed"
+        "fmt"
+
+        "github.com/ossf/scorecard/v5/checker"
+        "github.com/ossf/scorecard/v5/finding"
+        "github.com/ossf/scorecard/v5/internal/checknames"
+        "github.com/ossf/scorecard/v5/internal/probes"
+        "github.com/ossf/scorecard/v5/probes/internal/utils/uerror"
+    )
+
+    func init() {
+        probes.MustRegister(Probe, Run, []checknames.CheckName{checknames.MyCheck})
+    }
+
+    //go:embed *.yml
+    var fs embed.FS
+
+    const Probe = "myProbeName"
+
+    func Run(raw *checker.RawResults) ([]finding.Finding, string, error) {
+        if raw == nil {
+            return nil, "", fmt.Errorf("%w: raw", uerror.ErrNil)
+        }
+
+        var findings []finding.Finding
+
+        // Example: return OutcomeFalse when no issues found
+        if len(raw.SomeResults.Items) == 0 {
+            f, err := finding.NewWith(fs, Probe,
+                "No issues found.", nil,
+                finding.OutcomeFalse)
+            if err != nil {
+                return nil, Probe, fmt.Errorf("create finding: %w", err)
+            }
+            findings = append(findings, *f)
+            return findings, Probe, nil
+        }
+
+        // Return OutcomeTrue for each issue found
+        for i := range raw.SomeResults.Items {
+            item := &raw.SomeResults.Items[i]
+            f, err := finding.NewWith(fs, Probe, "issue detected", nil, finding.OutcomeTrue)
+            if err != nil {
+                return nil, Probe, fmt.Errorf("create finding: %w", err)
+            }
+            f = f.WithLocation(&finding.Location{
+                Path:      item.Path,
+                LineStart: &item.Offset,
+                Type:      item.Type,
+            })
+            findings = append(findings, *f)
+        }
+
+        return findings, Probe, nil
+    }
+    ```
+
+    The primary outcomes are `finding.OutcomeTrue` and `finding.OutcomeFalse`. Use `finding.OutcomeNotAvailable` when there is no data to evaluate.
+  </Step>
+
+  <Step title="Register the probe with a check">
+    The `init()` function in `impl.go` registers the probe with its parent check(s) using `probes.MustRegister`. Pass the check name constant from `internal/checknames`:
+
+    ```go
+    func init() {
+        probes.MustRegister(Probe, Run, []checknames.CheckName{
+            checknames.BinaryArtifacts,
+        })
+    }
+    ```
+
+    A probe can be associated with more than one check.
+  </Step>
+
+  <Step title="Register the probe in probes/entries.go">
+    Add your probe to the relevant probe list in `probes/entries.go` so the check runner can find and execute it:
+
+    ```go
+    // In the appropriate check's probe slice:
+    var MyCheck = []string{
+        // existing probes...
+        myProbeName.Probe,
+    }
+    ```
+  </Step>
+
+  <Step title="Write tests in impl_test.go">
+    Test all meaningful outcome paths. At minimum, cover:
+
+    - The `OutcomeTrue` path (issue detected)
+    - The `OutcomeFalse` path (no issues)
+    - Nil raw results (should return an error)
+
+    ```go
+    func TestRun(t *testing.T) {
+        t.Parallel()
+        tests := []struct {
+            name          string
+            raw           *checker.RawResults
+            wantOutcomes  []finding.Outcome
+            wantErr       bool
+        }{
+            {
+                name:         "nil raw results",
+                raw:          nil,
+                wantErr:      true,
+            },
+            {
+                name: "no issues found",
+                raw:  &checker.RawResults{/* empty */},
+                wantOutcomes: []finding.Outcome{finding.OutcomeFalse},
+            },
+            {
+                name: "issue detected",
+                raw:  &checker.RawResults{/* data with issue */},
+                wantOutcomes: []finding.Outcome{finding.OutcomeTrue},
+            },
+        }
+        for _, tt := range tests {
+            tt := tt
+            t.Run(tt.name, func(t *testing.T) {
+                t.Parallel()
+                got, _, err := Run(tt.raw)
+                if (err != nil) != tt.wantErr {
+                    t.Fatalf("Run() error = %v, wantErr %v", err, tt.wantErr)
+                }
+                // assert outcomes match tt.wantOutcomes
+            })
+        }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Reusing code across probes
+
+When multiple probes share logic — such as common data-fetching or parsing — place the shared code in a package under `probes/internal/`. This keeps individual probe implementations focused and avoids duplication.
+
+## Real-world example: hasBinaryArtifacts
+
+The [`probes/hasBinaryArtifacts/`](https://github.com/ossf/scorecard/tree/main/probes/hasBinaryArtifacts) probe is a good reference. Its `def.yml` declares a `stable` lifecycle, its `impl.go` iterates over raw binary artifact results and emits one `OutcomeTrue` finding per file found, and it returns a single `OutcomeFalse` when no files are found.
+
+## See also
+
+- [Write a new Scorecard security check](/contributing/writing-checks) — add a new top-level check that composes probes
+- [Contributing overview](/contributing/overview) — setup, PR process, and community links
+- [Probes overview](/probes/overview) — how probes work from an end-user perspective

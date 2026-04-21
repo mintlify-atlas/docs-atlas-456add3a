@@ -1,0 +1,46 @@
+---
+title: "Display a Scorecard security badge"
+description: "Add a live OpenSSF Scorecard badge to your README that auto-updates on every commit and links visitors to your full security report."
+---
+
+Scorecard badges give visitors an at-a-glance signal of your project's security posture. The badge is served from the same infrastructure as the [REST API](/usage/rest-api) and automatically reflects your latest score — no manual updates needed. Every time the [Scorecard GitHub Action](/usage/github-action) runs on your repository, the badge updates within minutes.
+
+## Prerequisites
+
+The badge requires your project to be enrolled in the public Scorecard API. To enroll:
+
+1. Add the [Scorecard GitHub Action](/usage/github-action) to your repository.
+2. Set `publish_results: true` in the Action configuration.
+3. Push a commit so the Action runs at least once.
+
+After the first successful run, your badge URL becomes live.
+
+## Badge markdown
+
+Add the following markdown to your `README.md`, replacing `{owner}` and `{repo}` with your GitHub username or organization and repository name:
+
+```markdown
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/{owner}/{repo}/badge)](https://scorecard.dev/viewer/?uri=github.com/{owner}/{repo})
+```
+
+The badge image links to the full Scorecard viewer page for your project, where visitors can explore individual check scores and remediation guidance.
+
+## Example
+
+For the `ossf/scorecard` repository itself, the markdown looks like:
+
+```markdown
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ossf/scorecard/badge)](https://scorecard.dev/viewer/?uri=github.com/ossf/scorecard)
+```
+
+Which renders as:
+
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ossf/scorecard/badge)](https://scorecard.dev/viewer/?uri=github.com/ossf/scorecard)
+
+## How auto-updates work
+
+The badge image URL hits the [Scorecard REST API](/usage/rest-api), which is cached at Fastly's CDN. When the GitHub Action publishes new results, the cache for your project is purged and the next badge request reflects the latest score. Because the cache is request-driven, the badge updates as soon as someone loads your README after a new result is published.
+
+<Tip>
+  Badge scores reflect the most recent results published by the GitHub Action. If you haven't pushed a commit recently, the score shown may be from the last weekly scheduled scan.
+</Tip>

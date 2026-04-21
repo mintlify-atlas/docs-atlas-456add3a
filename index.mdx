@@ -1,97 +1,92 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "OpenSSF Scorecard: Security health metrics for open source"
+description: "OpenSSF Scorecard automatically assesses open source projects against security best practices, giving each check a score of 0-10 to help you improve."
 ---
 
-## Setting up
+OpenSSF Scorecard is an automated security tool that evaluates open source projects against a set of security best practices — called "checks" — and assigns each a score from 0 to 10. Use Scorecard to harden your own project's security posture, or to evaluate the risk of dependencies before you adopt them.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Run your first Scorecard scan in minutes using the CLI, GitHub Action, or REST API.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Installation" icon="download" href="/installation">
+    Install Scorecard via Docker, Homebrew, or a standalone binary for macOS and Linux.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Checks reference" icon="shield-check" href="/checks/reference">
+    Explore all 18+ security checks, their scoring criteria, and remediation steps.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="GitHub Action" icon="github" href="/usage/github-action">
+    Add continuous security monitoring to any GitHub repository in one step.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What Scorecard checks
 
-Everything you need to create world-class documentation.
+Scorecard evaluates your repository across multiple security dimensions. Each check returns a score of 0–10 and a risk level, feeding into a weighted aggregate score.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={3}>
+  <Card title="Branch protection" icon="code-branch" href="/checks/reference">
+    Verifies that default and release branches are protected against force pushes and unreviewed merges.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="Code review" icon="magnifying-glass-code" href="/checks/reference">
+    Checks whether changes require review before being merged into protected branches.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Dependency management" icon="box-open" href="/checks/reference">
+    Detects pinned dependencies, active update tools, and known vulnerabilities.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Signed releases" icon="certificate" href="/checks/reference">
+    Confirms that published releases are cryptographically signed for supply chain integrity.
   </Card>
-</Columns>
+  <Card title="Token permissions" icon="key" href="/checks/reference">
+    Ensures GitHub workflow tokens follow the principle of least privilege.
+  </Card>
+  <Card title="Fuzzing & SAST" icon="bug" href="/checks/reference">
+    Detects use of fuzz testing tools and static analysis in CI pipelines.
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Three ways to use Scorecard
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Tabs>
+  <Tab title="CLI">
+    Run a one-off scan on any public repository with a single command:
+
+    ```bash
+    export GITHUB_AUTH_TOKEN=<your-token>
+    scorecard --repo=github.com/ossf/scorecard
+    ```
+
+    See [CLI usage](/usage/cli) for all flags and output formats.
+  </Tab>
+  <Tab title="GitHub Action">
+    Add the Scorecard GitHub Action to your repository for continuous monitoring. Results appear in the Security tab as code scanning alerts.
+
+    See [GitHub Action setup](/usage/github-action) for installation instructions.
+  </Tab>
+  <Tab title="REST API">
+    Query pre-calculated scores for over one million open source projects without running the tool yourself:
+
+    ```bash
+    curl https://api.scorecard.dev/projects/github.com/ossf/scorecard
+    ```
+
+    See [REST API](/usage/rest-api) for full endpoint documentation.
+  </Tab>
+</Tabs>
+
+## Get started
+
+<Steps>
+  <Step title="Install Scorecard">
+    Download the binary, use Docker, or install via Homebrew. See [Installation](/installation).
+  </Step>
+  <Step title="Authenticate">
+    Create a GitHub personal access token and set it as `GITHUB_AUTH_TOKEN`. See [Authentication](/authentication).
+  </Step>
+  <Step title="Run your first scan">
+    Run `scorecard --repo=<your-repo>` and review the results. See [Quickstart](/quickstart).
+  </Step>
+  <Step title="Understand and improve your score">
+    Read the [Checks reference](/checks/reference) and [Beginner's guide](/checks/beginner-guide) to prioritize improvements.
+  </Step>
+</Steps>

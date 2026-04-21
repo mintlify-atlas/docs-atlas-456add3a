@@ -1,0 +1,244 @@
+---
+title: "Write a new automated OpenSSF Scorecard security check"
+description: "Requirements, step-by-step guide, and Go code examples for adding a new automated security check to the OpenSSF Scorecard project."
+---
+
+Scorecard checks are the top-level security heuristics that produce scores from 0 to 10. Each check is composed of one or more probes that gather and evaluate raw data. This page walks through everything you need to add a new check to the codebase — from requirements to docs generation.
+
+## Requirements
+
+Before writing code, make sure your proposed check meets all of the following criteria. If you're unsure, open a GitHub issue to discuss with the team first.
+
+- **Automatable and objective.** The check must produce data that can be collected automatically, without subjective judgment.
+- **Specific enough to be actionable.** Any project should be able to address and improve its score with guidance.
+- **No maintainer interaction required.** Scorecard must be able to evaluate any open source project without asking its maintainers to do anything.
+- **Correctable by maintainers.** Maintainers must have a way to dispute or annotate findings they believe are incorrect.
+- **Usable by the broader community.** The check should be useful for anyone monitoring the security posture of upstream projects.
+
+## Step-by-step guide
+
+<Steps>
+  <Step title="Create a file under checks/">
+    Create a new Go file named after your check, for example `checks/mycheck.go`. Use the `checks` package.
+
+    ```go
+    package checks
+    ```
+  </Step>
+
+  <Step title="Name the check and register it with init()">
+    Export the check name as a constant and register the entry-point function using `init()`:
+
+    ```go
+    // Export the name by starting it with an upper-case letter.
+    const CheckMyCheckName string = "My-Check"
+
+    //nolint:gochecknoinits
+    func init() {
+        supportedRequestTypes := []checker.RequestType{
+            checker.CommitBased,
+            checker.FileBased,
+        }
+        if err := registerCheck(CheckMyCheckName, MyCheck, supportedRequestTypes); err != nil {
+            panic(err)
+        }
+    }
+    ```
+
+    The entry-point function receives a `*checker.CheckRequest` and returns a `checker.CheckResult`.
+
+    ```go
+    func MyCheck(c *checker.CheckRequest) checker.CheckResult {
+        // implementation here
+    }
+    ```
+  </Step>
+
+  <Step title="Log useful information with checker.DetailLogger">
+    Use `c.Dlogger` to log details that help users understand why a score was assigned. Provide file path, line offset, and snippet where relevant.
+
+    ```go
+    c.Dlogger.Warn(&checker.LogMessage{
+        Text:   "binary artifact detected",
+        Path:   file.Path,
+        Offset: file.Offset,
+    })
+    ```
+
+    | Method | When to use |
+    |--------|-------------|
+    | `Warn()` | Detail explaining a low score; shown with `--show-details` |
+    | `Info()` | Detail explaining a high score; shown with `--show-details` |
+    | `Debug()` | Verbose-only output; shown with `--verbosity Debug` |
+  </Step>
+
+  <Step title="Return an appropriate result type">
+    Always include a high-level sentence explaining the result. Choose the result constructor that fits your check's scoring model:
+
+    ```go
+    // Maximum score — check passed completely
+    return checker.CreateMaxScoreResult(CheckMyCheckName, "no issues found")
+
+    // Minimum score — check failed completely
+    return checker.CreateMinScoreResult(CheckMyCheckName, "all items failed")
+
+    // Proportional score — some items passed, some failed
+    return checker.CreateProportionalScoreResult(CheckMyCheckName, "X out of Y items passed", passed, total)
+
+    // Specific score — use a score constant or integer
+    return checker.CreateResultWithScore(CheckMyCheckName, "partial result", checker.HalfResultScore)
+
+    // Inconclusive — not enough data to score
+    return checker.CreateInconclusiveResult(CheckMyCheckName, "no data available")
+    ```
+  </Step>
+
+  <Step title="Handle errors with CreateRuntimeErrorResult">
+    If the check fails because of an irrecoverable error — such as an API failure — return a runtime error result:
+
+    ```go
+    rawData, err := raw.MyCheck(c)
+    if err != nil {
+        e := sce.WithMessage(sce.ErrScorecardInternal, err.Error())
+        return checker.CreateRuntimeErrorResult(CheckMyCheckName, e)
+    }
+    ```
+
+    See [errors/errors.md](https://github.com/ossf/scorecard/blob/main/errors/errors.md) for the full error handling guide.
+  </Step>
+
+  <Step title="Write unit tests">
+    Create `checks/mycheck_test.go` and add test cases covering at least:
+
+    - A **low score** scenario (check fails)
+    - A **high score** scenario (check passes)
+    - An **inconclusive** scenario (no data)
+
+    ```go
+    func TestMyCheck(t *testing.T) {
+        t.Parallel()
+        tests := []struct {
+            name     string
+            // test-specific fields
+            expected checker.CheckResult
+        }{
+            {
+                name:     "high score",
+                expected: checker.CheckResult{Score: checker.MaxResultScore},
+            },
+            // ...
+        }
+        for _, tt := range tests {
+            tt := tt
+            t.Run(tt.name, func(t *testing.T) {
+                t.Parallel()
+                // set up and call check
+            })
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Write end-to-end tests">
+    Create `e2e/mycheck_test.go`. Use a dedicated test repository that will not change over time so tests remain stable:
+
+    ```go
+    func TestMyCheckE2E(t *testing.T) {
+        t.Parallel()
+        repo := "github.com/ossf-tests/my-check-e2e-repo"
+        // run check against repo and assert expected score
+    }
+    ```
+  </Step>
+
+  <Step title="Update docs/checks/internal/checks.yaml">
+    Add a description of your check to `docs/checks/internal/checks.yaml`. This is the source of truth for the auto-generated `docs/checks.md`.
+
+    ```yaml
+    - name: My-Check
+      risk: Medium
+      short: Does the project do X?
+      description: |
+        Longer description of what the check evaluates and why it matters.
+      remediation:
+        - Step one to fix the issue.
+        - Step two to fix the issue.
+    ```
+
+    <Warning>
+      Do not edit `docs/checks.md` directly — it is auto-generated. Always edit `docs/checks/internal/checks.yaml` instead.
+    </Warning>
+  </Step>
+
+  <Step title="Generate docs">
+    Regenerate `docs/checks.md` to validate your YAML and produce updated documentation:
+
+    ```bash
+    make generate-docs
+    ```
+
+    Commit both `docs/checks/internal/checks.yaml` and the updated `docs/checks.md`.
+  </Step>
+
+  <Step title="Update README.md">
+    Add a short one-line description of your check to the checks table in [`README.md`](https://github.com/ossf/scorecard#scorecard-checks).
+  </Step>
+</Steps>
+
+## Real-world example: Binary-Artifacts
+
+The [`checks/binary_artifact.go`](https://github.com/ossf/scorecard/blob/main/checks/binary_artifact.go) check is a good reference. It follows the modern pattern of delegating raw data collection to `checks/raw/`, running probes via `zrunner`, and delegating evaluation to `checks/evaluation/`:
+
+```go
+const CheckBinaryArtifacts string = "Binary-Artifacts"
+
+//nolint:gochecknoinits
+func init() {
+    supportedRequestTypes := []checker.RequestType{
+        checker.CommitBased,
+        checker.FileBased,
+    }
+    if err := registerCheck(CheckBinaryArtifacts, BinaryArtifacts, supportedRequestTypes); err != nil {
+        panic(err)
+    }
+}
+
+func BinaryArtifacts(c *checker.CheckRequest) checker.CheckResult {
+    rawData, err := raw.BinaryArtifacts(c)
+    if err != nil {
+        e := sce.WithMessage(sce.ErrScorecardInternal, err.Error())
+        return checker.CreateRuntimeErrorResult(CheckBinaryArtifacts, e)
+    }
+
+    pRawResults := getRawResults(c)
+    pRawResults.BinaryArtifactResults = rawData
+
+    findings, err := zrunner.Run(pRawResults, probes.BinaryArtifacts)
+    if err != nil {
+        e := sce.WithMessage(sce.ErrScorecardInternal, err.Error())
+        return checker.CreateRuntimeErrorResult(CheckBinaryArtifacts, e)
+    }
+
+    ret := evaluation.BinaryArtifacts(CheckBinaryArtifacts, findings, c.Dlogger)
+    ret.Findings = findings
+    return ret
+}
+```
+
+Other good examples to read are `checks/code_review.go` and `checks/pinned_dependencies.go`.
+
+## checker.CheckResult fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `Name` | `string` | The check name constant |
+| `Score` | `int` | 0–10, or -1 for inconclusive |
+| `Reason` | `string` | Human-readable explanation of the score |
+| `Details` | `[]CheckDetail` | Logged details from `DetailLogger` |
+| `Findings` | `[]finding.Finding` | Structured probe findings |
+| `Error` | `error` | Set only for runtime errors |
+
+## See also
+
+- [Add probes to Scorecard checks](/contributing/adding-probes) — extend a check with fine-grained probe analysis
+- [Contributing overview](/contributing/overview) — setup, PR process, and community links

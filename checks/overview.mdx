@@ -1,0 +1,51 @@
+---
+title: "Overview of Scorecard security checks and risk levels"
+description: "All 19 Scorecard checks listed with risk levels, GitLab support status, and links to detailed scoring criteria and remediation guidance for each check."
+---
+
+Scorecard runs a set of automated checks against an open source repository to assess its security posture. Each check targets a specific heuristic—such as whether a project pins dependencies, requires code review, or signs its releases—and returns a score from 0 to 10. Together, these scores are combined into a weighted aggregate that reflects the overall risk level of the project.
+
+The following table lists all checks that Scorecard runs by default, along with each check's risk level and GitLab support status. Select any check name to jump to its detailed documentation on the [reference page](/checks/reference).
+
+<Note>
+  GitLab support is indicated per check. **Supported** means the check works fully on GitLab. **Validating** means the check runs on GitLab but results are still being verified for accuracy. **Unsupported** means the check does not run on GitLab repositories.
+</Note>
+
+| Check | Description | Risk level | GitLab support |
+|---|---|---|---|
+| [Binary-Artifacts](/checks/reference#binary-artifacts) | Is the project free of checked-in binaries? | High | Supported |
+| [Branch-Protection](/checks/reference#branch-protection) | Does the project use branch protection on default and release branches? | High | Supported (with notes) |
+| [CI-Tests](/checks/reference#ci-tests) | Does the project run tests in CI before pull requests are merged? | Low | Supported |
+| [CII-Best-Practices](/checks/reference#cii-best-practices) | Has the project earned an OpenSSF Best Practices Badge? | Low | Validating |
+| [Code-Review](/checks/reference#code-review) | Does the project require human code review before merging? | High | Validating |
+| [Contributors](/checks/reference#contributors) | Does the project have contributors from at least two different organizations? | Low | Validating |
+| [Dangerous-Workflow](/checks/reference#dangerous-workflow) | Does the project avoid dangerous patterns in GitHub Actions workflows? | Critical | Unsupported |
+| [Dependency-Update-Tool](/checks/reference#dependency-update-tool) | Does the project use an automated dependency update tool? | High | Unsupported |
+| [Fuzzing](/checks/reference#fuzzing) | Does the project use fuzzing tools to find bugs? | Medium | Validating |
+| [License](/checks/reference#license) | Does the project declare a license? | Low | Validating |
+| [Maintained](/checks/reference#maintained) | Is the project actively maintained? | High | Validating |
+| [Packaging](/checks/reference#packaging) | Does the project publish official packages from CI/CD? | Medium | Validating |
+| [Pinned-Dependencies](/checks/reference#pinned-dependencies) | Does the project pin its build and release dependencies? | Medium | Validating |
+| [SAST](/checks/reference#sast) | Does the project use static application security testing? | Medium | Unsupported |
+| [Security-Policy](/checks/reference#security-policy) | Does the project publish a security policy? | Medium | Validating |
+| [Signed-Releases](/checks/reference#signed-releases) | Does the project cryptographically sign release artifacts? | High | Validating |
+| [Token-Permissions](/checks/reference#token-permissions) | Do GitHub Actions workflow tokens follow least privilege? | High | Unsupported |
+| [Vulnerabilities](/checks/reference#vulnerabilities) | Does the project have open, unfixed vulnerabilities? | High | Validating |
+| [Webhooks](/checks/reference#webhooks) | Do repository webhooks authenticate request origins? *(Experimental)* | Critical | — |
+
+## Risk levels
+
+Each check is assigned a risk level that reflects the potential impact of a low score. Risk levels are also used to weight individual check scores when computing the [aggregate score](/checks/scoring).
+
+| Risk level | Weight | Example checks |
+|---|---|---|
+| Critical | 10 | Dangerous-Workflow, Webhooks |
+| High | 7.5 | Binary-Artifacts, Branch-Protection, Code-Review, Maintained, Signed-Releases, Token-Permissions, Vulnerabilities |
+| Medium | 5 | Fuzzing, Packaging, Pinned-Dependencies, SAST, Security-Policy |
+| Low | 2.5 | CI-Tests, CII-Best-Practices, Contributors, License |
+
+## Next steps
+
+- Read [detailed scoring criteria and remediation steps](/checks/reference) for every check.
+- Understand [how Scorecard calculates the aggregate score](/checks/scoring).
+- If you are new to Scorecard, start with the [beginner's guide](/checks/beginner-guide) for a prioritized walkthrough of the highest-impact checks.

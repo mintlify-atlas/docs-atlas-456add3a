@@ -1,0 +1,121 @@
+---
+title: "OpenSSF Scorecard: answers to frequently asked questions"
+description: "Answers to common Scorecard questions about previewing scores, check-specific behavior, bot commits, fuzzing, dependency pinning, and branch protection."
+---
+
+This page answers common questions about OpenSSF Scorecard — how it works, what it measures, and how to interpret results for specific checks. If you have a question that isn't answered here, [open an issue](https://github.com/ossf/scorecard/issues) or contribute to the FAQ via the [contribution guide](/contributing/overview).
+
+## Installation and usage
+
+<AccordionGroup>
+  <Accordion title="Can I preview my project's score?">
+    Yes. Over a million projects are automatically tracked by the Scorecard project. Use the web viewer to see pre-calculated scores by substituting your platform, org, and repository name:
+
+    ```
+    https://scorecard.dev/viewer/?uri=<github_or_gitlab>.com/<user_or_org>/<repo>
+    ```
+
+    For example:
+    - [https://scorecard.dev/viewer/?uri=github.com/ossf/scorecard](https://scorecard.dev/viewer/?uri=github.com/ossf/scorecard)
+    - [https://scorecard.dev/viewer/?uri=gitlab.com/fdroid/fdroidclient](https://scorecard.dev/viewer/?uri=gitlab.com/fdroid/fdroidclient)
+
+    You can also use the CLI to generate scores for any public repository. See [Installation](/installation), [Authentication](/authentication), and [Basic usage](/usage/cli).
+  </Accordion>
+
+  <Accordion title="What is the difference between Scorecard and other code scanning tools?">
+    Most code scanning tools focus on detecting specific vulnerabilities already present in a codebase. Scorecard, by contrast, focuses on improving a project's overall security posture by helping it adopt security best practices.
+
+    The two approaches are complementary. Scorecard checks whether a project follows practices like dependency pinning, code review, and signed releases — none of which are vulnerability detectors. Using Scorecard alongside a vulnerability scanner gives you broader coverage than either tool alone.
+  </Accordion>
+
+  <Accordion title="Wasn't this project called 'Scorecards' (plural)?">
+    Kind of. The project was initially called "Security Scorecards," but that form was never used consistently — the repository and the program were both named `scorecard` (singular). Over time, both singular and plural forms became common.
+
+    The decision was made to consolidate on the singular form, drop "Security," and add "OpenSSF" for uniqueness. The correct name is **OpenSSF Scorecard**, or **Scorecard** for short.
+  </Accordion>
+</AccordionGroup>
+
+## Check-specific questions
+
+<AccordionGroup>
+  <Accordion title="Binary-Artifacts: Can I allowlist testing artifacts?">
+    Scorecard lowers a project's score whenever it detects binary artifacts in the repository. Many projects use binary artifacts strictly for testing purposes.
+
+    Allowlisting specific binaries is not currently supported, but the Scorecard team is working on this feature in [issue #1270](https://github.com/ossf/scorecard/issues/1270).
+  </Accordion>
+
+  <Accordion title="Code-Review: Can it ignore bot commits?">
+    Not currently. This is a complex question with real trade-offs:
+
+    - **In favor of ignoring bots:** Some bots commit very frequently, and reviewing every automated change may not be feasible.
+    - **Against ignoring bots:** Bot credentials can be compromised, and unsigned commits could be spoofed by an attacker. Unsupervised write access from a bot is a meaningful security risk.
+
+    The Scorecard team is actively discussing this in [issue #2302](https://github.com/ossf/scorecard/issues/2302).
+  </Accordion>
+
+  <Accordion title="Dependency-Update-Tool: Why should I trust that recommended updates are safe?">
+    Both Dependabot and Renovate apply precautions before suggesting updates (see [Dependabot compatibility documentation](https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/about-dependabot-security-updates#about-compatibility-scores)).
+
+    You can also configure these tools to batch updates weekly or monthly. This window gives time for a malicious release to be reported and removed before it's ever suggested to you, and gives you an opportunity to review the release before merging.
+
+    For even stricter control, enable security-only updates. This limits notifications to releases that fix a known vulnerability you're exposed to.
+  </Accordion>
+
+  <Accordion title="Fuzzing: Does Scorecard accept custom fuzzers?">
+    Custom fuzzer support is currently available only for Go projects.
+
+    For full details on which fuzzing integrations are recognized, see the [Fuzzing check description](https://github.com/ossf/scorecard/blob/main/docs/checks.md#fuzzing).
+  </Accordion>
+
+  <Accordion title="Pinned-Dependencies: Will Scorecard detect unpinned dependencies in tests with Dockerfiles?">
+    Yes. Scorecard evaluates dependencies referenced in Dockerfiles used in tests and surfaces any that are not pinned. This gives you a concrete list of dependencies to fix, along with the security benefits of hash pinning.
+
+    See the [Pinned-Dependencies check description](/checks/reference#pinned-dependencies) for more on hash pinning vs. version pinning.
+  </Accordion>
+
+  <Accordion title="Pinned-Dependencies: Can I use version pinning instead of hash pinning?">
+    Version pinning is a significant improvement over no pinning at all. However, it still leaves your project vulnerable to tag-renaming attacks, where a dependency's tags are deleted and recreated to point to a malicious commit.
+
+    The OpenSSF recommends hash pinning instead of version pinning, combined with a dependency update tool like Dependabot to keep dependencies current. See the [Pinned-Dependencies check description](/checks/reference#pinned-dependencies) for details.
+  </Accordion>
+
+  <Accordion title="Signed-Releases: Why sign releases?">
+    Signing a release gives consumers a cryptographic guarantee that a specific artifact came from a source they trust. Without a signature, there is no way to verify that the artifact you downloaded is the one the maintainer published.
+
+    Signature verification is also becoming more broadly integrated into the ecosystem — for example, the OpenSSF has worked on [signature verification for npm packages](https://github.blog/2022-08-08-new-request-for-comments-on-improving-npm-security-with-sigstore-is-now-open/). Signing releases now positions your project to benefit from these downstream verification capabilities as they mature.
+  </Accordion>
+
+  <Accordion title="Branch-Protection: How do I get a 10/10 branch protection score on GitHub?">
+    The Branch-Protection score is tier-based. If a Tier 1 setting is not satisfied, the score is capped at 3/10 regardless of other settings.
+
+    **With a non-admin token**, enable the following settings on your default branch:
+
+    - Require a pull request before merging
+    - Require approvals (at least 1 approver)
+    - Require review from Code Owners
+    - Require status checks to pass before merging
+    - Require branches to be up to date before merging (with at least one status check selected)
+
+    **With an admin token**, Scorecard can additionally verify:
+
+    - Require approvals (at least 2 approvers)
+    - Dismiss stale pull request approvals when new commits are pushed
+    - Require approval of the most recent reviewable push
+    - Do not allow bypassing the above settings
+
+    The following table maps each setting to its score tier:
+
+    | Setting | Required value | Admin token only | Tier |
+    |---------|---------------|------------------|------|
+    | Allow force pushes | Disabled | — | 1 |
+    | Allow deletions | Disabled | — | 1 |
+    | Do not allow bypassing the above settings | Enabled | Yes | 1 |
+    | Require approvals | At least 1 | — | 2 |
+    | Require branches to be up to date before merging | Enabled | Yes | 2 |
+    | Require approval of the most recent reviewable push | Enabled | Yes | 2 |
+    | Status checks | At least 1 | — | 3 |
+    | Require approvals | At least 2 | — | 4 |
+    | Require review from Code Owners | Enabled (with CODEOWNERS file) | — | 4 |
+    | Dismiss stale pull request approvals when new commits are pushed | Enabled | Yes | 5 |
+  </Accordion>
+</AccordionGroup>

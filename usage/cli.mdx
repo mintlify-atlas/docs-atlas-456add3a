@@ -1,0 +1,170 @@
+---
+title: "Scorecard CLI reference: flags and usage"
+description: "Run Scorecard from the command line to scan any public repository, filter checks, choose output formats, and inspect detailed per-check results."
+---
+
+The Scorecard CLI lets you scan any GitHub, GitLab, or Azure DevOps repository directly from your terminal. You can target a single repo, a batch of repos, an entire GitHub organization, a local directory, or a package by name on npm, PyPI, RubyGems, or NuGet. Results can be printed in human-readable text, JSON, SARIF, probe, raw, or in-toto statement format.
+
+## Synopsis
+
+```bash
+scorecard (--repo=<repo> | --local=<folder> | --org=<organization> | \
+           --{npm,pypi,rubygems,nuget}=<package_name>) \
+          [--checks=check1,...] [--show-details] [--show-annotations]
+```
+
+Exactly one target flag is required. All other flags are optional.
+
+## Target flags
+
+<Info>
+  You must supply exactly one of these flags. Combining them (for example `--repo` with `--npm`) is an error.
+</Info>
+
+| Flag | Description |
+|---|---|
+| `--repo` | Repository URL to scan. Accepts `owner/repo`, `github.com/owner/repo`, or a full HTTPS URL. |
+| `--repos` | Comma-separated list of repository URLs. Each entry follows the same formats as `--repo`. |
+| `--org` | Scan every non-archived repository in a GitHub organization. Accepts `ossf` or `github.com/ossf`. |
+| `--local` | Path to a local directory to scan instead of fetching from a remote host. |
+| `--npm` | npm package name. Scorecard resolves the package's linked GitHub repository and scans it. |
+| `--pypi` | PyPI package name. Scorecard resolves the package's linked GitHub repository and scans it. |
+| `--rubygems` | RubyGems package name. Resolves the linked GitHub repository. |
+| `--nuget` | NuGet package name. Resolves the linked GitHub repository. |
+
+<Note>
+  The package-manager flags (`--npm`, `--pypi`, `--rubygems`, `--nuget`) locate the upstream GitHub source repository. They do not change how checks are evaluated — the checks always run against the source code, not the published package.
+</Note>
+
+## Check and probe selection
+
+| Flag | Default | Description |
+|---|---|---|
+| `--checks` | all checks | Comma-separated list of checks to run, e.g. `--checks=Branch-Protection,Code-Review`. |
+| `--probes` | none | Comma-separated list of individual probes to run instead of full checks. |
+
+## Output flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--format` | `default` | Output format. Supported values: `default`, `json`, `sarif`, `probe`, `raw`, `intoto`. SARIF requires `ENABLE_SARIF=1`; `raw` requires `SCORECARD_V6=1`. |
+| `--output` / `-o` | stdout | Write results to this file path instead of stdout. |
+| `--show-details` | `false` | Print per-finding detail lines alongside each check result. |
+| `--show-annotations` | `false` | Print any maintainer annotations attached to check results. |
+
+## Scan control flags
+
+| Flag | Default | Description |
+|---|---|---|
+| `--commit` | `HEAD` | Specific commit SHA to analyze. Defaults to the current HEAD. |
+| `--commit-depth` | `0` (unlimited) | Number of commits to inspect, counted backwards from `--commit`. |
+| `--policy` | none | Path to a YAML policy file. Requires `ENABLE_SARIF=1`. |
+| `--metadata` | none | Comma-separated key=value pairs appended to the result metadata. |
+| `--file-mode` | `archive` | How repository files are fetched: `archive` (tarball, faster) or `git` (full clone). |
+
+## Logging flag
+
+| Flag | Default | Description |
+|---|---|---|
+| `--verbosity` | `warn` | Log level. Accepted values: `info`, `debug`, `warn`. |
+
+## Environment variables
+
+| Variable | Description |
+|---|---|
+| `GITHUB_AUTH_TOKEN` | GitHub personal access token (or comma-separated list for round-robin). Aliases: `GITHUB_TOKEN`, `GH_AUTH_TOKEN`, `GH_TOKEN`. |
+| `GITHUB_APP_KEY_PATH` | Path to a GitHub App private key file, for app-based authentication. |
+| `GITHUB_APP_INSTALLATION_ID` | Installation ID for the GitHub App. |
+| `GITHUB_APP_ID` | App ID for the GitHub App. |
+| `GITLAB_AUTH_TOKEN` | GitLab personal access token with `read_api`, `read_user`, and `read_repository` scopes. |
+| `GH_HOST` | Override the GitHub host, e.g. `github.corp.com` for GitHub Enterprise Server. |
+| `GL_HOST` | Override the GitLab host for self-hosted instances at a path slug, e.g. `foo.com/bar`. |
+| `ENABLE_SARIF` | Set to any non-empty value to unlock `--format=sarif` and `--policy`. |
+| `SCORECARD_V6` | Set to any non-empty value to unlock `--format=raw`. |
+| `SCORECARD_EXPERIMENTAL` | Set to any non-empty value to enable Azure DevOps repository support. |
+
+## Examples
+
+**Basic repo scan**
+
+```bash
+export GITHUB_AUTH_TOKEN=<your_token>
+scorecard --repo=github.com/ossf/scorecard
+```
+
+**Run only specific checks**
+
+```bash
+scorecard --repo=github.com/ossf/scorecard --checks=Branch-Protection,Code-Review
+```
+
+**Output as JSON**
+
+```bash
+scorecard --repo=github.com/ossf/scorecard --format=json --output=results.json
+```
+
+**Show detailed findings**
+
+```bash
+scorecard --repo=github.com/ossf/scorecard --checks=Branch-Protection --show-details
+```
+
+**Scan an npm package**
+
+```bash
+scorecard --npm=angular
+```
+
+**Scan an entire GitHub organization**
+
+```bash
+scorecard --org=ossf
+```
+
+**Scan a local directory**
+
+```bash
+scorecard --local=./path/to/repo
+```
+
+**GitLab repository**
+
+```bash
+export GITLAB_AUTH_TOKEN=glpat-xxxx
+scorecard --repo=gitlab.com/fdroid/fdroidclient
+```
+
+**GitHub Enterprise Server**
+
+```bash
+export GH_HOST=github.corp.com
+export GITHUB_AUTH_TOKEN=<token>
+scorecard --repo=github.corp.com/org/repo
+```
+
+**Docker (no local install required)**
+
+```bash
+docker run -e GITHUB_AUTH_TOKEN=<token> \
+  ghcr.io/ossf/scorecard:latest \
+  --show-details --repo=https://github.com/ossf/scorecard
+```
+
+## Subcommands
+
+### `scorecard serve`
+
+Starts a self-hosted HTTP server that exposes Scorecard as a REST API. See [Self-hosted HTTP server](/usage/rest-api#self-hosted-server) for full details.
+
+```bash
+scorecard serve
+```
+
+### `scorecard version`
+
+Prints the current Scorecard version and build metadata.
+
+```bash
+scorecard version
+```

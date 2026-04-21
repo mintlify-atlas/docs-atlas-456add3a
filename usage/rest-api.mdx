@@ -1,0 +1,148 @@
+---
+title: "Query scores with the Scorecard REST API"
+description: "Fetch pre-calculated Scorecard results for over one million open source projects from the public API at api.scorecard.dev, or run a self-hosted server."
+---
+
+The public REST API at [https://api.scorecard.dev](https://api.scorecard.dev) serves pre-calculated Scorecard results for more than one million critical open source projects. Results are refreshed weekly and cached globally with [Fastly](https://www.fastly.com/) via their [Fast Forward](https://www.fastly.com/fast-forward) program, so most responses are served from a CDN edge node near you.
+
+<Note>
+  Three checks are omitted from API results due to the cost of running them at scale: `CI-Tests`, `Contributors`, and `Dependency-Update-Tool`. Use the [CLI](/usage/cli) if you need those checks.
+</Note>
+
+## Public API
+
+### Endpoint
+
+```
+GET https://api.scorecard.dev/projects/github.com/{owner}/{repo}
+```
+
+### Example
+
+```bash
+curl https://api.scorecard.dev/projects/github.com/ossf/scorecard
+```
+
+The response is a JSON object containing the aggregate score, individual check scores, and metadata:
+
+```json
+{
+  "date": "2024-01-15",
+  "repo": {
+    "name": "github.com/ossf/scorecard",
+    "commit": "abc123def456..."
+  },
+  "scorecard": {
+    "version": "v5.0.0",
+    "commit": "..."
+  },
+  "score": 8.4,
+  "checks": [
+    {
+      "name": "Binary-Artifacts",
+      "score": 10,
+      "reason": "no binaries found in the repo",
+      "details": null,
+      "documentation": {
+        "short": "Determines if the project has generated executable (binary) artifacts in the source repository.",
+        "url": "https://github.com/ossf/scorecard/blob/main/docs/checks.md#binary-artifacts"
+      }
+    }
+  ]
+}
+```
+
+### Enabling your project
+
+To have your project's results published to the REST API, set `publish_results: true` in the [Scorecard GitHub Action](/usage/github-action) configuration. Results are uploaded after each successful Action run and become available within a few minutes.
+
+### CDN caching
+
+Results are cached at Fastly's edge. When new results are published (after a push or weekly scan), the cache is automatically purged for that project. If you observe stale data, open an issue on the [scorecard repository](https://github.com/ossf/scorecard/issues).
+
+### Data license
+
+All data served by the public REST API is licensed under the [CDLA Permissive 2.0](https://cdla.dev/permissive-2-0/).
+
+---
+
+## Self-hosted server
+
+The `scorecard serve` subcommand starts a local HTTP server that runs Scorecard checks on demand. This is useful for integrating Scorecard into internal tooling or CI pipelines without relying on the public API.
+
+### Starting the server
+
+```bash
+scorecard serve
+```
+
+The server listens on port `8080` by default. Override the port with the `PORT` environment variable:
+
+```bash
+PORT=9000 scorecard serve
+```
+
+### Endpoints
+
+#### `GET /` and `POST /`
+
+Runs a Scorecard scan and returns results as JSON.
+
+**GET request (query parameters)**
+
+```bash
+curl "http://localhost:8080/?repo=github.com/ossf/scorecard&checks=Branch-Protection,Code-Review&show_details=true"
+```
+
+| Query parameter | Description |
+|---|---|
+| `repo` | Repository URL to scan. |
+| `npm` | npm package name (resolves GitHub repo). |
+| `pypi` | PyPI package name (resolves GitHub repo). |
+| `rubygems` | RubyGems package name (resolves GitHub repo). |
+| `nuget` | NuGet package name (resolves GitHub repo). |
+| `checks` | Comma-separated list of checks to run. |
+| `probes` | Comma-separated list of probes to run. |
+| `commit` | Commit SHA to analyze (default: `HEAD`). |
+| `show_details` | Set to `true` to include per-finding details. |
+| `show_annotations` | Set to `true` to include maintainer annotations. |
+| `file_mode` | File fetch mode: `archive` (default) or `git`. |
+
+**POST request (JSON body)**
+
+```bash
+curl -X POST http://localhost:8080/ \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo": "github.com/ossf/scorecard",
+    "checks": ["Branch-Protection", "Code-Review"],
+    "show_details": true
+  }'
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `repo` | string | Repository URL to scan. |
+| `npm` | string | npm package name. |
+| `pypi` | string | PyPI package name. |
+| `rubygems` | string | RubyGems package name. |
+| `nuget` | string | NuGet package name. |
+| `commit` | string | Commit SHA (default: `HEAD`). |
+| `commit_depth` | integer | Number of commits to analyze. |
+| `checks` | string[] | Checks to run. |
+| `probes` | string[] | Probes to run. |
+| `show_details` | boolean | Include per-finding details. |
+| `show_annotations` | boolean | Include maintainer annotations. |
+| `file_mode` | string | `archive` or `git`. |
+
+#### `GET /health`
+
+Returns HTTP `200` when the server is running. Useful for readiness probes.
+
+```bash
+curl http://localhost:8080/health
+```
+
+### CORS
+
+The server enables CORS for all origins, accepting `GET`, `POST`, and `OPTIONS` requests with `Accept` and `Content-Type` headers. This makes it safe to call from browser-based tools.

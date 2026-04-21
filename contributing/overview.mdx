@@ -1,0 +1,142 @@
+---
+title: "How to contribute code and docs to OpenSSF Scorecard"
+description: "Set up your environment, build Scorecard locally, understand the PR process, run linting, configure GitHub PAT permissions, and connect with the community."
+---
+
+OpenSSF Scorecard is an open source project and welcomes contributions of all kinds — bug fixes, new checks, documentation improvements, and more. Before contributing, read and abide by the [Code of Conduct](https://github.com/ossf/scorecard/blob/main/CODE_OF_CONDUCT.md). The Linux Foundation also requires all contributions to include a per-commit sign-off using the `-s` or `--signoff` flag.
+
+## Prerequisites
+
+Install these tools before you start:
+
+| Tool | Version | Notes |
+|------|---------|-------|
+| [`git`](https://help.github.com/articles/set-up-git/) | Any | Source control |
+| [`go`](https://golang.org/doc/install) | v1.23.0+ | Required |
+| [`protoc`](https://grpc.io/docs/protoc-installation/) | v3+ | Protocol buffers compiler |
+| [`make`](https://www.gnu.org/software/make/) | Any | Recommended; some tasks require it |
+| [`docker`](https://docs.docker.com/engine/install/) | v18.9+ | Optional; needed for some tasks |
+
+<Tip>
+  If you're new to Go, start with [How to Write Go Code](https://go.dev/doc/code), [A Tour of Go](https://go.dev/tour/), and [Effective Go](https://go.dev/doc/effective_go).
+</Tip>
+
+## Development setup
+
+<Steps>
+  <Step title="Create a GitHub account and personal access token">
+    [Create a GitHub account](https://github.com/join) if you don't have one, then [create a personal access token](https://docs.github.com/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) for authenticating API calls during development.
+  </Step>
+  <Step title="Fork and clone the repository">
+    Fork `ossf/scorecard` on GitHub, then clone your fork locally:
+
+    ```bash
+    git clone https://github.com/<your-username>/scorecard.git
+    cd scorecard
+    ```
+  </Step>
+  <Step title="Install build tools">
+    ```bash
+    make install
+    ```
+  </Step>
+  <Step title="Build the project">
+    ```bash
+    make build
+    ```
+
+    You can also build directly with Go:
+
+    ```bash
+    go build ./...
+    ```
+  </Step>
+  <Step title="Run Scorecard locally">
+    ```bash
+    go run main.go --repo=github.com/ossf-tests/scorecard-check-branch-protection-e2e
+    ```
+
+    Use `--format json` and pipe to `jq` for readable JSON output:
+
+    ```bash
+    go run main.go --repo=github.com/ossf-tests/scorecard-check-branch-protection-e2e --format json | jq
+    ```
+
+    Run `go run main.go --help` to see all available flags. Useful flags include `--checks`, `--probes`, `--format`, and `--show-details`.
+  </Step>
+</Steps>
+
+## Contributing steps
+
+1. Find an existing issue to work on, or open a new issue describing your proposed change.
+2. Wait for a repo maintainer to respond to your issue.
+3. Fork the repo, develop and test your changes.
+4. Submit a pull request.
+
+## PR process
+
+Annotate every PR with an icon indicating the type of change:
+
+| Icon | Type |
+|------|------|
+| `:warning:` | Breaking change |
+| `:sparkles:` | Non-breaking feature |
+| `:bug:` | Patch fix |
+| `:book:` | Documentation changes |
+| `:seedling:` | Infra / tests / other |
+| `:ghost:` | No release note |
+
+Use `:ghost:` only for PRs that revert unreleased changes. Individual commits do not need separate tags — they are assumed to match the PR.
+
+<Note>
+  After a maintainer reviews your code, address feedback without rebasing when possible. Use traditional merge commits to keep the GitHub review experience clean.
+</Note>
+
+## What to do before submitting a pull request
+
+Run these commands locally before opening a PR:
+
+| Command | Description | Run in CI? |
+|---------|-------------|------------|
+| `make all` | Runs tests, linting, fmt, and `go mod tidy` | Yes |
+| `make e2e-pat` | Runs end-to-end tests | Yes |
+| `make unit-test` | Runs unit tests only | Yes |
+| `make check-linter` | Checks linter issues only | Yes |
+
+<Warning>
+  Pull requests that change Scorecard score results require a strong justification. Discuss such changes in a GitHub issue before implementing them.
+</Warning>
+
+## Linting
+
+Fix most linter issues automatically:
+
+```bash
+make fix-linter
+```
+
+This runs `golangci-lint` with the project's configuration. You can also run `golangci-lint` directly if you prefer.
+
+## GitHub PAT permissions
+
+For public repositories, classic personal access tokens need the following scope:
+
+- `public_repo` — Read/write access to public repositories; required for branch protection checks.
+
+## Community
+
+- **Slack:** Join the `#scorecard` channel in the [OpenSSF Slack](https://openssf.slack.com/).
+- **Mailing list:** Subscribe via the [OpenSSF community page](https://openssf.org/community/).
+- **Community meetings:** Check the [OpenSSF calendar](https://calendar.google.com/calendar/r?cid=czYzdm9lZmhwNWk5cGZsdGI1NTU0MDYzMjBAZ3JvdXAuY2FsZW5kYXIuZ29vZ2xlLmNvbQ) for Scorecard community meetings.
+- **Code of conduct:** All contributors must follow the [OpenSSF Code of Conduct](https://github.com/ossf/scorecard/blob/main/CODE_OF_CONDUCT.md).
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Write a new check" icon="shield" href="/contributing/writing-checks">
+    Learn the requirements and step-by-step process for adding a new Scorecard security check.
+  </Card>
+  <Card title="Add probes" icon="microscope" href="/contributing/adding-probes">
+    Understand the probe system and how to extend existing checks with new probes.
+  </Card>
+</CardGroup>

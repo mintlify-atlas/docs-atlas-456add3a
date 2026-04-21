@@ -1,0 +1,84 @@
+---
+title: "Access Scorecard public dataset on BigQuery"
+description: "Query weekly Scorecard scans of over one million critical open source projects using Google BigQuery, or extract raw results to Google Cloud Storage."
+---
+
+The OpenSSF runs a weekly Scorecard scan of the one million most critical open source projects, ranked by the number of direct dependents across the ecosystem. Results are published to a [BigQuery public dataset](https://cloud.google.com/bigquery/public-data), making it straightforward to run large-scale analyses, track score trends over time, or integrate Scorecard data into your own tooling.
+
+<Note>
+  The weekly scan currently covers **GitHub-hosted projects only**. Support for projects on other platforms is planned for a future release.
+</Note>
+
+## Dataset details
+
+| Resource | Identifier |
+|---|---|
+| Full dataset (all historical partitions) | `openssf:scorecardcron.scorecard-v2` |
+| Latest results view | `openssf:scorecardcron.scorecard-v2_latest` |
+
+To access the dataset in [BigQuery Explorer](https://console.cloud.google.com/bigquery), click **Add Data → Star a project by name** and enter `openssf`.
+
+## SQL examples
+
+**Track a project's aggregate score over time**
+
+```sql
+SELECT date, score
+FROM `openssf.scorecardcron.scorecard-v2`
+WHERE repo.name = "github.com/ossf/scorecard"
+ORDER BY date ASC
+```
+
+**Find the latest scores for all projects in an organization**
+
+```sql
+SELECT repo.name, score, date
+FROM `openssf.scorecardcron.scorecard-v2_latest`
+WHERE repo.name LIKE "github.com/ossf/%"
+ORDER BY score DESC
+```
+
+**Identify projects below a score threshold**
+
+```sql
+SELECT repo.name, score
+FROM `openssf.scorecardcron.scorecard-v2_latest`
+WHERE score < 5
+ORDER BY score ASC
+LIMIT 100
+```
+
+## Extracting data with the `bq` CLI
+
+You can export results to Google Cloud Storage in newline-delimited JSON format using the [`bq` command-line tool](https://cloud.google.com/bigquery/docs/bq-command-line-tool).
+
+<Steps>
+  <Step title="Find the latest partition ID">
+    ```bash
+    bq query --nouse_legacy_sql \
+      'SELECT partition_id
+       FROM openssf.scorecardcron.INFORMATION_SCHEMA.PARTITIONS
+       WHERE table_name="scorecard-v2"
+         AND partition_id != "__NULL__"
+       ORDER BY partition_id DESC
+       LIMIT 1'
+    ```
+  </Step>
+
+  <Step title="Extract the partition to GCS">
+    Replace `<partition_id>` with the value returned above and `bucket-name/filename` with your GCS destination:
+
+    ```bash
+    bq extract \
+      --destination_format=NEWLINE_DELIMITED_JSON \
+      'openssf:scorecardcron.scorecard-v2$<partition_id>' \
+      gs://bucket-name/filename-*.json
+    ```
+  </Step>
+</Steps>
+
+## Tracked projects
+
+The list of projects included in the weekly scan is maintained in [`cron/internal/data/projects.csv`](https://github.com/ossf/scorecard/blob/main/cron/internal/data/projects.csv) in this repository.
+
+To request that a project be added to the scan, open a pull request that adds the repository URL to that file. Projects must be hosted on GitHub.

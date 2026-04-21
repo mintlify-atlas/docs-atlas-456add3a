@@ -1,0 +1,603 @@
+---
+title: "Scorecard probes reference"
+description: "Complete reference for all Scorecard probes, including lifecycle state, description, motivation, and the meaning of true and false outcomes for each probe."
+---
+
+This page lists every probe available in Scorecard. Each probe tests a single specific behavior and returns one or more findings with binary outcomes. Probes are the building blocks that Scorecard checks use internally to compute scores.
+
+For an introduction to how probes work and how to run them, see the [probes overview](/probes/overview).
+
+<AccordionGroup>
+
+  <Accordion title="archived">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project is archived.
+
+    **Motivation**: An archived project will not receive security patches and is not actively tested or maintained.
+
+    **Outcomes**:
+    - `OutcomeTrue` — the project is archived
+    - `OutcomeFalse` — the project is not archived
+  </Accordion>
+
+  <Accordion title="blocksDeleteOnBranches">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project blocks non-admins from deleting branches.
+
+    **Motivation**: Allowing non-admins to delete branches has a similar effect to performing force pushes, potentially allowing history to be erased.
+
+    **Outcomes**: The probe returns one finding per branch Scorecard considers (default and release branches).
+    - `OutcomeTrue` — users are blocked from deleting the branch
+    - `OutcomeFalse` — users are able to delete the branch
+  </Accordion>
+
+  <Accordion title="blocksForcePushOnBranches">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project blocks force pushes on its branches.
+
+    **Motivation**: Allowing force pushes to branches could allow those with write access to make insecure changes to the project's history.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — force pushes are blocked on the branch
+    - `OutcomeFalse` — force pushes are allowed on the branch
+    - `OutcomeNotAvailable` — Scorecard cannot fetch branch data from the repository
+  </Accordion>
+
+  <Accordion title="branchProtectionAppliesToAdmins">
+    **Lifecycle**: stable
+
+    **Description**: Checks that branch protection rules apply to project admins.
+
+    **Motivation**: If admins can bypass branch protection settings, those settings may not effectively protect the project.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — branch protection rules are enforced for admins
+    - `OutcomeFalse` — admins are exempt from branch protection rules
+  </Accordion>
+
+  <Accordion title="branchesAreProtected">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project uses protected branches.
+
+    **Motivation**: Unprotected branches may allow actions that could compromise the project's security.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — the branch is protected
+    - `OutcomeFalse` — the branch is not protected
+  </Accordion>
+
+  <Accordion title="codeApproved">
+    **Lifecycle**: experimental
+
+    **Description**: Checks that all recent changesets have been approved by someone who is not the author.
+
+    **Motivation**: The review process should ensure that proposed changes receive at least one approval from a different contributor before merging.
+
+    **Outcomes**:
+    - `OutcomeTrue` — all commits over the last `--commit-depth` commits were approved before merging
+    - `OutcomeFalse` — one or more commits were not approved before merging
+    - `OutcomeNotApplicable` — the project has no changes to evaluate
+  </Accordion>
+
+  <Accordion title="codeReviewOneReviewers">
+    **Lifecycle**: experimental
+
+    **Description**: Checks that at least one reviewer reviewed each change before merging.
+
+    **Motivation**: The review process should ensure that proposed changes receive at least one approval from a different contributor.
+
+    **Outcomes**:
+    - `OutcomeTrue` — all changes had at least one reviewer
+    - `OutcomeFalse` — one or more changes had fewer than one reviewer
+  </Accordion>
+
+  <Accordion title="contributorsFromOrgOrCompany">
+    **Lifecycle**: experimental
+
+    **Description**: Checks whether the project has contributions from users associated with a company or organization.
+
+    **Motivation**: Having contributors from multiple organizations can be an indicator of project health and sustained maintenance.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per contributing organization detected (requires at least 3 different companies across the last 30 commits for the highest score)
+    - `OutcomeFalse` — the project has no contributing organizations
+  </Accordion>
+
+  <Accordion title="createdRecently">
+    **Lifecycle**: stable
+
+    **Description**: Checks if the project was created in the last 90 days.
+
+    **Motivation**: Recently created repositories have been used in malicious fork and typosquatting attacks. A newly created repo is not a strong signal on its own but can be useful context.
+
+    **Outcomes**:
+    - `OutcomeTrue` — the project was created within the last 90 days (finding includes a `lookBackDays` value)
+    - `OutcomeFalse` — the project is older than 90 days
+  </Accordion>
+
+  <Accordion title="dependencyUpdateToolConfigured">
+    **Lifecycle**: stable
+
+    **Description**: Checks that a dependency update tool configuration is present.
+
+    **Motivation**: Out-of-date dependencies make a project vulnerable to known flaws. Tools like Dependabot or Renovate can automatically open pull requests to update outdated or insecure dependencies.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per dependency update tool configuration detected
+    - `OutcomeFalse` — no dependency update tool configuration was found
+  </Accordion>
+
+  <Accordion title="dismissesStaleReviews">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project dismisses stale reviews when new commits are pushed.
+
+    **Motivation**: Without dismissing stale reviews, a contributor could bring a pull request to an approved state and then add unreviewed commits before merging.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — stale reviews are dismissed when new commits are pushed
+    - `OutcomeFalse` — stale reviews are not dismissed
+  </Accordion>
+
+  <Accordion title="fuzzed">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project is fuzz tested.
+
+    **Motivation**: Fuzzing feeds unexpected or random data into a program to expose bugs. Regular fuzzing is important for detecting vulnerabilities that attackers might also discover through the same technique.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per fuzzing tool detected
+    - `OutcomeFalse` — no fuzzing tool was found, or the project uses a tool Scorecard does not detect
+  </Accordion>
+
+  <Accordion title="hasBinaryArtifacts">
+    **Lifecycle**: stable
+
+    **Description**: Checks if the project has any binary files in its source tree.
+
+    **Motivation**: Binary files are not human-readable, so users and reviewers cannot easily inspect what they do. This is a more restrictive probe than `hasUnverifiedBinaryArtifacts`, which excludes verified binary files such as Gradle wrappers.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per binary file found
+    - `OutcomeFalse` — no binary files were found
+  </Accordion>
+
+  <Accordion title="hasDangerousWorkflowScriptInjection">
+    **Lifecycle**: stable
+
+    **Description**: Checks whether the project has GitHub Actions workflows that enable script injection.
+
+    **Motivation**: Script injections allow attackers to use untrusted input to access privileged resources, including code execution and secret exfiltration.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per dangerous script injection pattern detected (each finding may include a suggested patch)
+    - `OutcomeFalse` — no dangerous patterns were found
+  </Accordion>
+
+  <Accordion title="hasDangerousWorkflowUntrustedCheckout">
+    **Lifecycle**: stable
+
+    **Description**: Checks whether the project has GitHub Actions workflows that perform untrusted checkouts.
+
+    **Motivation**: Workflows triggered with `pull_request_target` or `workflow_run` have write permission to the target repository and access to its secrets. Combined with a checkout of PR contents, attackers may be able to compromise the repository using build scripts they control.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per untrusted checkout detected
+    - `OutcomeFalse` — no untrusted checkouts were detected
+  </Accordion>
+
+  <Accordion title="hasFSFOrOSIApprovedLicense">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project has an FSF or OSI approved license.
+
+    **Motivation**: A recognized license helps users understand how the source code may be used and facilitates security or legal reviews. The list of approved licenses is taken from [spdx.org/licenses](https://spdx.org/licenses/).
+
+    **Outcomes**:
+    - `OutcomeTrue` — a license file is present and is FSF or OSI approved
+    - `OutcomeFalse` — a license file is present but is not of an approved format
+    - `OutcomeNotApplicable` — no license file was found
+  </Accordion>
+
+  <Accordion title="hasLicenseFile">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project has a license file.
+
+    **Motivation**: The lack of a license impedes security reviews, audits, and creates legal risk for potential users.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per license file found
+    - `OutcomeFalse` — no license file was found
+  </Accordion>
+
+  <Accordion title="hasNoGitHubWorkflowPermissionUnknown">
+    **Lifecycle**: experimental
+
+    **Description**: Checks that GitHub workflows do not have unknown permission levels.
+
+    **Motivation**: Unknown permissions may result from bugs or errors in fetching permission levels, and could indicate misconfigured workflows.
+
+    **Outcomes**:
+    - `OutcomeTrue` — the project has no workflows with unknown permission levels
+    - `OutcomeFalse` — one finding per workflow with unknown permission levels
+  </Accordion>
+
+  <Accordion title="hasOSVVulnerabilities">
+    **Lifecycle**: stable
+
+    **Description**: Checks whether the project has known vulnerabilities listed in OSV.
+
+    **Motivation**: Open, unfixed vulnerabilities in a project or its dependencies can be exploited by attackers and should be fixed as soon as possible. This probe uses the [OSV](https://osv.dev) service.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per vulnerability found in OSV
+    - `OutcomeFalse` — no known vulnerabilities were detected
+  </Accordion>
+
+  <Accordion title="hasOpenSSFBadge">
+    **Lifecycle**: stable
+
+    **Description**: Checks whether the project has an OpenSSF (formerly CII) Best Practices Badge.
+
+    **Motivation**: The OpenSSF Best Practices badge indicates that the project follows a set of security-focused best practices for open source software.
+
+    **Outcomes**:
+    - `OutcomeTrue` — the project has a badge (finding includes a `badgeLevel` value in the `Values` map)
+    - `OutcomeFalse` — the project does not have a badge
+  </Accordion>
+
+  <Accordion title="hasPermissiveLicense">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project has a permissive license.
+
+    **Motivation**: A permissive license allows use of the component in derivative works. Non-permissive licenses such as copyleft licenses may create legal risk for potential users.
+
+    **Outcomes**:
+    - `OutcomeTrue` — a license file is present and is permissive
+    - `OutcomeFalse` — no license file was found, or the license is not permissive
+  </Accordion>
+
+  <Accordion title="hasRecentCommits">
+    **Lifecycle**: stable
+
+    **Description**: Checks whether the project has at least one commit per week over the last 90 days.
+
+    **Motivation**: An inactive project may not receive security patches or have its dependencies updated. A lack of recent activity should prompt further investigation.
+
+    **Outcomes**:
+    - `OutcomeTrue` — the project has commits within the last 90 days (finding includes `commitsWithinThreshold` and `lookBackDays` values)
+    - `OutcomeFalse` — the project has no commits in the last 90 days
+  </Accordion>
+
+  <Accordion title="hasReleaseSBOM">
+    **Lifecycle**: experimental
+
+    **Description**: Checks that the project publishes an SBOM as part of its release artifacts.
+
+    **Motivation**: An SBOM provides information about source code components and dependencies, facilitating software supply chain security and helping identify upstream vulnerabilities.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per SBOM artifact found in release assets (up to 5)
+    - `OutcomeFalse` — no SBOM artifact was found in release assets
+  </Accordion>
+
+  <Accordion title="hasSBOM">
+    **Lifecycle**: experimental
+
+    **Description**: Checks that the project has an SBOM file in its source tree.
+
+    **Motivation**: An SBOM provides information about source code components and dependencies, facilitating software supply chain security and helping identify upstream vulnerabilities.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per SBOM file found (up to 5)
+    - `OutcomeFalse` — no SBOM file was found
+  </Accordion>
+
+  <Accordion title="hasUnverifiedBinaryArtifacts">
+    **Lifecycle**: stable
+
+    **Description**: Checks if the project has unverified binary files in its source tree. Verified binary files (currently Gradle wrappers) are excluded.
+
+    **Motivation**: Binary files are not human-readable, so users and reviewers cannot easily inspect what they do. This is a more permissive probe than `hasBinaryArtifacts`.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per unverified binary file found
+    - `OutcomeFalse` — no unverified binary files were found
+  </Accordion>
+
+  <Accordion title="issueActivityByProjectMember">
+    **Lifecycle**: stable
+
+    **Description**: Checks that a collaborator, member, or owner has participated in issues in the last 90 days.
+
+    **Motivation**: A project that does not respond to issues may not be actively maintained. A lack of activity should prompt further investigation. However, a project may simply have no recent issues, in which case this result can be disregarded.
+
+    **Outcomes**:
+    - `OutcomeTrue` — a collaborator, member, or owner has been active in issues within the last 90 days (finding includes `numberOfIssuesUpdatedWithinThreshold`)
+    - `OutcomeFalse` — no collaborators, members, or owners have been active in issues in the last 90 days
+  </Accordion>
+
+  <Accordion title="jobLevelPermissions">
+    **Lifecycle**: experimental
+
+    **Description**: Checks that GitHub workflows do not have `write` permissions at the job level.
+
+    **Motivation**: Write permissions at the job level can enable attackers to escalate privileges in some circumstances.
+
+    **Outcomes**:
+    - `OutcomeTrue` — the project has no workflows with write permissions at the job level
+    - `OutcomeFalse` — one finding per workflow with write permissions at the job level
+  </Accordion>
+
+  <Accordion title="packagedWithAutomatedWorkflow">
+    **Lifecycle**: stable
+
+    **Description**: Checks whether the project uses automated packaging.
+
+    **Motivation**: Automated packaging makes it easy for users to receive security patches through a package manager, including install, update, and uninstall capabilities.
+
+    **Outcomes**:
+    - `OutcomeTrue` — the project uses a packaging mechanism Scorecard can detect (e.g., `docker push`, `mvn deploy` in a workflow)
+    - `OutcomeFalse` — no automated packaging mechanism was detected
+  </Accordion>
+
+  <Accordion title="pinsDependencies">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project pins dependencies to a specific digest.
+
+    **Motivation**: Pinned dependencies ensure that builds and deployments use identical software, reducing deployment risks, simplifying debugging, and enabling reproducibility. Pinning also helps mitigate compromised dependencies.
+
+    **Implementation note**: Go modules using full semantic versions are treated as pinned because the Go toolchain verifies downloaded content against hashes.
+
+    **Outcomes**: The probe inspects Dockerfiles, shell scripts, and GitHub Actions workflows.
+    - `OutcomeTrue` — one finding per pinned dependency
+    - `OutcomeFalse` — one finding per unpinned dependency
+    - `OutcomeNotApplicable` — the project has no dependencies in supported ecosystems
+  </Accordion>
+
+  <Accordion title="releasesAreSigned">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project's GitHub and GitLab releases are signed.
+
+    **Motivation**: Signed releases allow consumers to verify artifacts before using them.
+
+    **Outcomes**: The probe checks the last 5 releases.
+    - `OutcomeTrue` — the release has a signature file in its release assets
+    - `OutcomeFalse` — the release does not have a signature file
+    - `OutcomeNotApplicable` — the project has no releases
+  </Accordion>
+
+  <Accordion title="releasesHaveProvenance">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project's releases on GitHub and GitLab have provenance.
+
+    **Motivation**: Provenance gives users verifiable, security-critical information so they can confirm the authenticity of artifacts before consuming them.
+
+    **Outcomes**: The probe checks the last 5 releases.
+    - `OutcomeTrue` — the release has a provenance file in its release assets
+    - `OutcomeFalse` — the release does not have a provenance file
+    - `OutcomeNotApplicable` — the project has no releases
+  </Accordion>
+
+  <Accordion title="releasesHaveVerifiedProvenance">
+    **Lifecycle**: experimental
+
+    **Description**: Checks if the project releases with provenance attestations that have been verified.
+
+    **Motivation**: Provenance attestations provide a stronger guarantee of authenticity and integrity than signatures alone, since they can cover both package contents and build metadata including build environment, build steps, and builder identity. Currently only NPM is supported.
+
+    **Outcomes**: The probe checks packages associated with the repository via a package manager.
+    - `OutcomeTrue` — the package release has a verified SLSA provenance attestation
+    - `OutcomeFalse` — the package release does not have a verified provenance attestation
+    - `OutcomeNotAvailable` — no package or releases were found
+  </Accordion>
+
+  <Accordion title="requiresApproversForPullRequests">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project requires approvers for pull requests.
+
+    **Motivation**: Requiring approvers for pull requests makes it harder to introduce vulnerable code into the project.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — the branch requires at least one approval before merging a PR
+    - `OutcomeFalse` — the branch does not require approvals for PRs
+  </Accordion>
+
+  <Accordion title="requiresCodeOwnersReview">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project requires dedicated code owners to review pull requests.
+
+    **Motivation**: Code owners are expected to have deep knowledge of their areas of the codebase. Requiring their review for PRs should prevent security issues from being introduced.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — the branch requires code owner review for PRs
+    - `OutcomeFalse` — the branch does not require code owner review
+  </Accordion>
+
+  <Accordion title="requiresLastPushApproval">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project requires approval of the most recent push.
+
+    **Motivation**: Requiring approval of the most recent push prevents contributors from sneaking malicious commits into a PR after it has already been approved.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — the branch requires approval of the most recent push
+    - `OutcomeFalse` — the branch does not require approval of the most recent push
+  </Accordion>
+
+  <Accordion title="requiresPRsToChangeCode">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project requires pull requests to change code.
+
+    **Motivation**: Requiring pull requests for code changes promotes testing and review of proposed changes before they are merged.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — the branch requires pull requests to change code
+    - `OutcomeFalse` — the branch does not require pull requests to change code
+  </Accordion>
+
+  <Accordion title="requiresUpToDateBranches">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project requires PRs to be in sync with the base branch before merging.
+
+    **Motivation**: Requiring PRs to be up to date with the base branch ensures that changes are tested against the latest code and reduces the risk of introducing regressions.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — the branch requires PRs to be in sync with the base branch
+    - `OutcomeFalse` — the branch does not require PRs to be up to date
+  </Accordion>
+
+  <Accordion title="runsStatusChecksBeforeMerging">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project runs required status checks before merging.
+
+    **Motivation**: Required status checks can catch common errors and resolve issues in pull requests before they reach the main branch.
+
+    **Outcomes**: The probe returns one finding per branch (default and release branches).
+    - `OutcomeTrue` — the branch runs required status checks before merging
+    - `OutcomeFalse` — the branch does not run required status checks
+  </Accordion>
+
+  <Accordion title="sastToolConfigured">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project uses a SAST (Static Application Security Testing) tool.
+
+    **Motivation**: SAST tools analyze source code before the application runs, helping to prevent known classes of bugs from being introduced into the codebase.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per SAST tool detected (checks configuration files, GitHub Actions workflows, and PR check annotations)
+    - `OutcomeFalse` — no SAST tool was found, or the project uses a tool Scorecard does not currently detect
+  </Accordion>
+
+  <Accordion title="sastToolRunsOnAllCommits">
+    **Lifecycle**: experimental
+
+    **Description**: Checks that a SAST tool runs on all commits in the project's CI pipeline.
+
+    **Motivation**: Running SAST on every commit ensures that security issues are caught early in the development process, before code is merged.
+
+    **Outcomes**:
+    - `OutcomeTrue` — SAST tools run successfully on every pull request before merging (finding includes count of commits tested and total commits merged)
+    - `OutcomeFalse` — SAST tools do not run on every pull request (finding includes count of commits tested and total commits merged)
+    - `OutcomeNotApplicable` — the project has no merged commits to evaluate
+  </Accordion>
+
+  <Accordion title="securityPolicyContainsLinks">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the security policy contains web or email links.
+
+    **Motivation**: URLs point users to additional information and online disclosure forms. Email addresses provide a direct contact for vulnerability disclosure.
+
+    **Outcomes**: The probe returns one finding per security policy file.
+    - `OutcomeTrue` — the security policy contains at least one URL (`http://` or `https://`) or email address
+    - `OutcomeFalse` — the security policy contains no links or email addresses, or no security policy file was found
+  </Accordion>
+
+  <Accordion title="securityPolicyContainsText">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the security policy contains explanatory text beyond just links and email addresses.
+
+    **Motivation**: A security policy with detailed text is more useful to researchers reporting vulnerabilities. The more information provided, the better.
+
+    **Outcomes**: The probe returns one finding per security policy file.
+    - `OutcomeTrue` — the security policy contains substantive text beyond links and email addresses
+    - `OutcomeFalse` — the security policy contains only links or email addresses, or no security policy was found
+  </Accordion>
+
+  <Accordion title="securityPolicyContainsVulnerabilityDisclosure">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the security policy indicates a vulnerability disclosure process.
+
+    **Motivation**: If someone finds a vulnerability, they need to be able to communicate it to maintainers. The policy should describe how disclosures are handled.
+
+    **Outcomes**: The probe returns one finding per security policy file.
+    - `OutcomeTrue` — the security policy contains information about the disclosure process (looks for strings matching "Disclos" and "Vuln")
+    - `OutcomeFalse` — no disclosure process information was found, or no security policy file exists
+  </Accordion>
+
+  <Accordion title="securityPolicyPresent">
+    **Lifecycle**: stable
+
+    **Description**: Checks if a security policy is defined in the repository or in the organization's `.github` repository.
+
+    **Motivation**: A security policy (typically `SECURITY.md`) tells users what constitutes a vulnerability and how to report one without disclosing it publicly. A unified policy across an organization's repositories simplifies vulnerability response.
+
+    **Outcomes**:
+    - `OutcomeTrue` — a security policy file was found
+    - `OutcomeFalse` — no security policy file was found
+  </Accordion>
+
+  <Accordion title="testsRunInCI">
+    **Lifecycle**: stable
+
+    **Description**: Checks that the project runs tests in CI, for example with GitHub Actions or Prow.
+
+    **Motivation**: Running tests helps developers catch mistakes early, which can reduce the number of vulnerabilities that reach production.
+
+    **Outcomes**: The probe evaluates recent commits (approximately the last 30).
+    - `OutcomeTrue` — one finding per PR that ran CI tests
+    - `OutcomeFalse` — one finding per PR that did not run CI tests
+    - `OutcomeNotApplicable` — the project has had no pull requests
+  </Accordion>
+
+  <Accordion title="topLevelPermissions">
+    **Lifecycle**: experimental
+
+    **Description**: Checks that the project does not have any top-level `write` permissions in its GitHub Actions workflows.
+
+    **Motivation**: Top-level write permissions in workflows can enable attackers to escalate privileges in some circumstances.
+
+    **Outcomes**:
+    - `OutcomeTrue` — the project has no workflows with write permissions at the top level
+    - `OutcomeFalse` — one finding per workflow with write permissions at the top level
+  </Accordion>
+
+  <Accordion title="unsafeblock">
+    **Lifecycle**: experimental
+
+    **Description**: Flags unsafe blocks of code in the project.
+
+    **Motivation**: Memory safety should be considered a continuum rather than binary. Even in generally memory-safe languages, it is sometimes possible (and occasionally unavoidable) to write unsafe code that bypasses normal safety checks. Currently supports Go and C# projects.
+
+    - For Go: detects use of the `unsafe` import directive
+    - For C#: detects use of the `AllowUnsafeBlocks` property in `.csproj` files
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per unsafe block detected
+    - `OutcomeFalse` — no unsafe blocks were found
+  </Accordion>
+
+  <Accordion title="webhooksUseSecrets">
+    **Lifecycle**: experimental
+
+    **Description**: Checks whether the webhooks defined in the repository use secrets to authenticate request origins.
+
+    **Motivation**: Webhooks without secret authorization can make projects accessible to unauthorized third parties.
+
+    **Outcomes**:
+    - `OutcomeTrue` — one finding per webhook that uses secret authorization
+    - `OutcomeFalse` — one finding per webhook without secret authorization
+    - `OutcomeNotApplicable` — the project has no webhooks
+  </Accordion>
+
+</AccordionGroup>

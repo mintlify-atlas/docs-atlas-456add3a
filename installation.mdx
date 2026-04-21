@@ -1,0 +1,113 @@
+---
+title: "Install OpenSSF Scorecard CLI"
+description: "Install the Scorecard CLI on macOS or Linux using Docker, a standalone binary, Homebrew, Nix, or AUR. Windows support is experimental."
+---
+
+The Scorecard CLI runs on macOS and Linux. Windows is experimentally supported — contributions toward full Windows support are welcome.
+
+After installing, you will need to [authenticate with GitHub](/authentication) before running a scan.
+
+<Tabs>
+  <Tab title="Docker">
+    Pull the latest Scorecard image from the GitHub Container Registry:
+
+    ```shell
+    docker pull ghcr.io/ossf/scorecard:latest
+    ```
+
+    To pin to a specific release (for example, `v5.0.0`):
+
+    ```shell
+    docker pull ghcr.io/ossf/scorecard:v5.0.0
+    ```
+
+    Run a scan by passing your auth token and target repository:
+
+    ```shell
+    docker run -e GITHUB_AUTH_TOKEN=<your-token> \
+      ghcr.io/ossf/scorecard:latest \
+      --show-details \
+      --repo=https://github.com/ossf/scorecard
+    ```
+
+    <Note>
+      Replace `<your-token>` with a GitHub personal access token. See [Authentication](/authentication) for setup instructions.
+    </Note>
+  </Tab>
+
+  <Tab title="Standalone binary">
+    1. Visit the [latest releases page](https://github.com/ossf/scorecard/releases/latest) and download the zip file for your operating system and architecture.
+
+    2. Extract the archive and move the `scorecard` binary to a directory on your `PATH`. To find your Go binary path:
+
+       ```shell
+       go env GOPATH
+       ```
+
+       Then move the binary:
+
+       ```shell
+       mv scorecard $(go env GOPATH)/bin/scorecard
+       ```
+
+    3. Verify the installation:
+
+       ```shell
+       scorecard version
+       ```
+
+    ### Verify SLSA provenance
+
+    Scorecard releases are built with [SLSA Level 3](https://slsa.dev) provenance using the OpenSSF's [slsa-framework/slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator). You can verify a downloaded release binary before using it.
+
+    1. Install the verifier tool by following the [slsa-verifier installation instructions](https://github.com/slsa-framework/slsa-verifier#installation).
+
+    2. Download the `attestation.intoto.jsonl` signature file from the [GitHub releases page](https://github.com/ossf/scorecard/releases/latest).
+
+    3. Run the verifier, substituting the zip filename and release tag:
+
+       ```shell
+       slsa-verifier -artifact-path <the-zip> \
+         -provenance attestation.intoto.jsonl \
+         -source github.com/ossf/scorecard \
+         -tag <the-tag>
+       ```
+  </Tab>
+
+  <Tab title="Package managers">
+    Install Scorecard with your preferred package manager.
+
+    **Homebrew** (macOS or Linux):
+
+    ```shell
+    brew install scorecard
+    ```
+
+    **Nix** (NixOS):
+
+    ```shell
+    nix-shell -p nixpkgs.scorecard
+    ```
+
+    **AUR** (Arch Linux):
+
+    Use your preferred AUR helper to install the `scorecard` package. For example, with `yay`:
+
+    ```shell
+    yay -S scorecard
+    ```
+
+    After installation, verify the binary is available:
+
+    ```shell
+    scorecard version
+    ```
+  </Tab>
+</Tabs>
+
+## Next steps
+
+Once Scorecard is installed, set up authentication so the CLI can make authenticated API requests without hitting GitHub's rate limits.
+
+- [Authenticate Scorecard with GitHub and GitLab](/authentication)
+- [Run your first scan](/quickstart)

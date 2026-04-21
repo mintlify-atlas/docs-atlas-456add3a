@@ -1,0 +1,132 @@
+---
+title: "Enforce security policies with Scorecard"
+description: "Policy files let you define minimum score thresholds for Scorecard checks, enabling pass/fail enforcement in CI/CD pipelines and automated security gates."
+---
+
+Policy files let you define minimum score thresholds for Scorecard checks and integrate those thresholds into automated pipelines. When you run Scorecard with a policy, each check is evaluated against its configured threshold, and the overall run either passes or fails based on whether all enforced checks meet their minimum scores. This makes Scorecard useful as a blocking gate in CI/CD workflows.
+
+## Prerequisites
+
+Policy enforcement requires SARIF output format. Set the `ENABLE_SARIF` environment variable or pass `--format=sarif` when running Scorecard with a policy file.
+
+```bash
+ENABLE_SARIF=1 scorecard --repo=github.com/example/project \
+  --policy=policy.yml \
+  --format=sarif \
+  --output=results.sarif
+```
+
+## Policy file format
+
+A policy file is a YAML document with a `version` field and a `policies` map. Each key in `policies` is a Scorecard check name (case-sensitive, matching the check's canonical name). Each entry has a `mode` and a `score`.
+
+```yaml policy.yml
+version: 1
+policies:
+  Binary-Artifacts:
+    score: 9
+    mode: enforced
+  Branch-Protection:
+    score: 5
+    mode: enforced
+  Code-Review:
+    score: 7
+    mode: enforced
+  Dangerous-Workflow:
+    score: 10
+    mode: enforced
+  Dependency-Update-Tool:
+    score: 9
+    mode: enforced
+  License:
+    score: 9
+    mode: disabled
+  Pinned-Dependencies:
+    score: 7
+    mode: enforced
+  SAST:
+    score: 5
+    mode: enforced
+  Security-Policy:
+    score: 9
+    mode: enforced
+  Vulnerabilities:
+    score: 10
+    mode: enforced
+```
+
+### Policy fields
+
+| Field | Values | Description |
+|-------|--------|-------------|
+| `version` | `1` | Policy schema version. Currently only `1` is supported. |
+| `score` | `0`–`10` | Minimum acceptable score for the check. The run fails if the check scores below this value and the mode is `enforced`. |
+| `mode` | `enforced`, `disabled` | `enforced` means the check must meet the score threshold. `disabled` means the check is skipped entirely and does not affect the result. |
+
+<Note>
+When a policy file is provided, Scorecard only runs the checks listed in the policy. Checks not included in the policy are not evaluated.
+</Note>
+
+## Using the `--policy` flag
+
+Pass the path to your policy file using the `--policy` flag.
+
+```bash
+scorecard --repo=github.com/example/project \
+  --policy=policy.yml \
+  --format=sarif \
+  --output=results.sarif
+```
+
+Scorecard exits with a non-zero status code if any enforced check scores below its configured threshold. This makes it straightforward to use the exit code as a pass/fail signal in CI.
+
+## Pass/fail behavior
+
+Scorecard evaluates each `enforced` check against its `score` threshold:
+
+- If a check's score meets or exceeds the threshold, it passes.
+- If a check's score falls below the threshold, it fails, and Scorecard exits with a non-zero exit code.
+- `disabled` checks are not run and do not affect the outcome.
+
+## Integrating with CI/CD
+
+<Steps>
+  <Step title="Create a policy file">
+    Define your policy thresholds in a `policy.yml` file and commit it to your repository.
+  </Step>
+
+  <Step title="Add a workflow step">
+    Add a step to your CI workflow that runs Scorecard with the policy file and SARIF output.
+
+    ```yaml .github/workflows/scorecard.yml
+    - name: Run Scorecard analysis
+      uses: ossf/scorecard-action@v2
+      with:
+        results_file: results.sarif
+        results_format: sarif
+        policy_file: policy.yml
+        publish_results: true
+    ```
+  </Step>
+
+  <Step title="Upload SARIF results">
+    Upload the SARIF output to GitHub's code scanning dashboard to see results inline with your code.
+
+    ```yaml .github/workflows/scorecard.yml
+    - name: Upload SARIF results
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: results.sarif
+    ```
+  </Step>
+</Steps>
+
+## Current limitations
+
+<Warning>
+Policy enforcement requires SARIF output. You cannot use policy files with other output formats such as `json` or `default`.
+</Warning>
+
+- All checks listed in the policy must have a defined `mode`. Scorecard will return an error if a policy is provided but a running check has no corresponding policy entry.
+- Check names in the policy file are case-sensitive and must match the canonical check names exactly (for example, `Binary-Artifacts`, not `binary-artifacts`).
+- Only `version: 1` is currently supported.

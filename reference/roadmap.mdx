@@ -1,0 +1,136 @@
+---
+title: "OpenSSF Scorecard roadmap: 2026 plans and milestones"
+description: "Scorecard v6 roadmap: OSPS Baseline conformance, structured evidence outputs, new probes, and ecosystem alignment with downstream OpenSSF tools in 2026."
+---
+
+This page describes the Scorecard project's current direction and planned work. Phases are ordered by outcome; maintainer bandwidth determines delivery timing. Discussion and feedback are welcome via [GitHub issues](https://github.com/ossf/scorecard/issues) and [community meetings](/reference/faq).
+
+## 2026: Scorecard v6 — Open Source Security Evidence Engine
+
+**Mission:** Scorecard produces trusted, structured security evidence for the open source ecosystem.
+
+Scorecard v6 evolves the project from a scoring tool to an evidence engine. The primary initiative for 2026 is adding [OSPS Baseline](https://baseline.openssf.org/) conformance evaluation as the first use case that proves this architecture. Scorecard accepts diverse inputs about a project's security practices, normalizes them through probe-based analysis, and packages the resulting evidence in interoperable formats for downstream tools to act on.
+
+Check scores (0–10) and conformance labels (PASS/FAIL/UNKNOWN) are parallel evaluation layers over the same probe evidence, produced in a single run. Existing checks, probes, and scores are unchanged — v6 is additive.
+
+<Note>
+  The target OSPS Baseline version is [v2026.02.19](https://baseline.openssf.org/versions/2026-02-19). Current control-by-control coverage is documented in [docs/osps-baseline-coverage.md](https://github.com/ossf/scorecard/blob/main/docs/osps-baseline-coverage.md).
+</Note>
+
+## Phased delivery
+
+<Steps>
+  <Step title="Phase 1: Conformance foundation and Level 1 coverage">
+    **Outcome:** Scorecard produces a useful OSPS Baseline Level 1 conformance report for any public GitHub repository, available across the CLI, GitHub Action, and REST API.
+
+    Deliverables:
+
+    - **Evidence model and output formats:**
+      - Enriched JSON (Scorecard-native)
+      - In-toto evidence predicate (`scorecard.dev/evidence/v0.1`)
+      - Gemara output (via [security-baseline](https://github.com/ossf/security-baseline))
+      - OSCAL Assessment Results (via [go-oscal](https://github.com/defenseunicorns/go-oscal))
+      - OpenSSF Best Practices Badge automation proposals
+    - **Unified framework:** Checks and OSPS Baseline both use the same internal probe composition interface; probe-to-control mappings maintained in Scorecard
+    - **Applicability engine** detecting preconditions (e.g., "has made a release")
+    - **Map existing probes** to OSPS controls where coverage exists today
+    - **New probes for Level 1 gaps:**
+      - Governance and documentation presence
+      - Dependency manifest presence
+      - Security policy deepening
+      - Secrets detection (consuming platform signals where available)
+    - **Metadata ingestion layer** — Security Insights as the first supported source; architecture supports additional metadata sources
+  </Step>
+
+  <Step title="Phase 2: Release integrity and Level 2 core">
+    **Outcome:** Scorecard evaluates release-related OSPS controls, covering the core of Level 2 and becoming useful for downstream due diligence workflows.
+
+    Deliverables:
+
+    - Release asset inspection layer
+    - Signed manifest support
+    - Release notes and changelog detection
+    - Evidence bundle output (conformance results + in-toto statement)
+    - Additional metadata sources for the ingestion layer
+
+    <Note>
+      Phase 1 focuses on automatically verifiable controls. Design of attestation mechanisms for non-automatable controls is deferred to Phase 3.
+    </Note>
+  </Step>
+
+  <Step title="Phase 3: Enforcement detection, Level 3, and multi-repo">
+    **Outcome:** Scorecard covers Level 3 controls including enforcement detection and project-level aggregation.
+
+    Deliverables:
+
+    - SCA policy and enforcement detection (Scorecard detects enforcement mechanisms; it is not itself an enforcement tool)
+    - SAST policy and enforcement detection (same scope)
+    - Multi-repo project-level conformance aggregation
+    - Attestation mechanism for non-automatable controls (deferred from Phase 2)
+    - Attestation integration GA
+  </Step>
+</Steps>
+
+## Design principles
+
+These principles guide all v6 decisions:
+
+<AccordionGroup>
+  <Accordion title="Evidence is the product">
+    Scorecard's core output is structured, normalized probe findings. Check scores and conformance labels are parallel evaluation layers over the same evidence — neither is privileged over the other.
+  </Accordion>
+  <Accordion title="Probes normalize diversity">
+    Each probe understands multiple ways a control outcome can be satisfied. A project using any recognized approach should receive credit.
+  </Accordion>
+  <Accordion title="UNKNOWN-first honesty">
+    If Scorecard cannot observe a control, the status is UNKNOWN with an explanation — never a false PASS or FAIL.
+  </Accordion>
+  <Accordion title="All consumers are equal">
+    Downstream tools consume Scorecard evidence through published output formats. No consumer has privileged access to internal data structures.
+  </Accordion>
+  <Accordion title="No metadata monopolies">
+    Probes may evaluate multiple sources for the same data. No single metadata file is required for meaningful results, though they may enrich results.
+  </Accordion>
+  <Accordion title="Formats are presentation">
+    Output formats (JSON, in-toto, Gemara, SARIF, OSCAL) are views over the evidence model. No single format is privileged.
+  </Accordion>
+</AccordionGroup>
+
+## Ecosystem alignment
+
+Scorecard operates as an evidence engine within the broader OpenSSF ecosystem. Downstream tools consume Scorecard evidence through published output formats:
+
+<CardGroup cols={2}>
+  <Card title="Allstar" icon="shield" href="https://github.com/ossf/allstar">
+    A Scorecard sub-project that continuously monitors GitHub organizations and enforces Scorecard check results as policies. OSPS conformance output could enable Allstar to enforce Baseline conformance at the organization level.
+  </Card>
+  <Card title="Privateer" icon="flag" href="https://github.com/ossf/pvtr-github-repo-scanner">
+    Baseline evaluation powered by Gemara and Security Insights.
+  </Card>
+  <Card title="Minder" icon="lock" href="https://github.com/mindersec/minder">
+    Policy enforcement and remediation platform (OpenSSF Sandbox, ORBIT WG).
+  </Card>
+  <Card title="AMPEL" icon="file-check" href="https://github.com/carabiner-dev/ampel">
+    Attestation-based policy enforcement; already consumes Scorecard probe results via its policy library.
+  </Card>
+  <Card title="Darnit" icon="clipboard-check" href="https://github.com/kusari-oss/darnit">
+    Compliance audit and remediation tool that consumes Scorecard evidence.
+  </Card>
+</CardGroup>
+
+<Note>
+  Scorecard should not duplicate evaluation that downstream tools handle. Its role is to produce deep, probe-based security evidence that these tools can consume through interoperable output formats.
+</Note>
+
+## Open questions
+
+The following design questions are under active discussion among maintainers:
+
+- **Attestation identity model** — How non-automatable controls are attested (repo-local metadata vs. signed attestations via Sigstore/OIDC), decomposed into identity (who signs) and tooling (what generates, when) sub-questions.
+- **Enforcement detection scope** — How Scorecard detects enforcement mechanisms without becoming an enforcement tool itself.
+
+To participate in these discussions, see the [proposal document](https://github.com/ossf/scorecard/blob/main/openspec/changes/osps-baseline-conformance/proposal.md) and join the Scorecard community meetings.
+
+## How to contribute
+
+See the [contributing overview](/contributing/overview) to set up your development environment and understand the PR process. To work on roadmap items specifically, browse [open issues](https://github.com/ossf/scorecard/issues) tagged with the relevant milestone.

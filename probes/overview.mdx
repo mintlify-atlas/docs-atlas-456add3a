@@ -1,0 +1,91 @@
+---
+title: "Scorecard probes: fine-grained security analysis"
+description: "Probes are the building blocks of Scorecard checks. Each probe tests one specific behavior and returns binary outcomes you can query independently of checks."
+---
+
+Probes are the underlying building blocks of Scorecard checks. Where a check produces a single numeric score for a broad security category, each probe tests exactly one specific behavior and returns a binary outcome: `OutcomeTrue` or `OutcomeFalse`. Checks aggregate the results of one or more probes to compute their final scores.
+
+Running probes directly gives you more granular insight into what Scorecard detected and where, without having to interpret an aggregated score.
+
+## How probes relate to checks
+
+Each Scorecard check is implemented as an aggregation of one or more probes. When you run `scorecard` normally, the check runs its probes internally and uses their outcomes to calculate a score on a scale of 0 to 10.
+
+When you run probes directly, you receive individual findings for each probe—one finding per detected behavior or artifact. A finding includes:
+
+- An **outcome** (`OutcomeTrue`, `OutcomeFalse`, `OutcomeNotApplicable`, `OutcomeNotAvailable`)
+- A **message** describing what was detected
+- An optional **location** pointing to the file, line, or branch where the behavior was observed
+
+## Probe lifecycle states
+
+Every probe has a lifecycle state that indicates its stability.
+
+| State | Meaning |
+|-------|---------|
+| `stable` | Probe behavior and semantics will not change. Bug fixes may be applied. |
+| `experimental` | Probe semantics may change. No stability guarantees are provided. |
+| `deprecated` | The probe is no longer maintained. Callers should not rely on it. |
+
+<Note>
+Experimental probes may produce different results across Scorecard versions as their detection logic evolves. Avoid relying on experimental probe output in production pipelines without pinning to a specific Scorecard version.
+</Note>
+
+## Running probes directly
+
+Use the `--probes` flag to run one or more specific probes instead of running all checks.
+
+```bash
+scorecard --repo=github.com/example/project --probes=hasBinaryArtifacts
+```
+
+Run multiple probes by passing the flag multiple times or as a comma-separated list.
+
+```bash
+scorecard --repo=github.com/example/project \
+  --probes=hasBinaryArtifacts,fuzzed,securityPolicyPresent
+```
+
+## Probe output format
+
+Use `--format=probe` to get structured probe output instead of the default check-based output.
+
+```bash
+scorecard --repo=github.com/example/project \
+  --probes=hasBinaryArtifacts \
+  --format=probe
+```
+
+The probe output format returns one finding per detected item, making it easier to identify exactly which files, branches, or workflows triggered a result. This contrasts with check output, which collapses all findings into a single score.
+
+### Example output comparison
+
+**Check output** (`--format=default`):
+```
+Binary-Artifacts: 8 / 10
+Reason: 2 binary files found
+```
+
+**Probe output** (`--format=probe`):
+```
+Probe: hasBinaryArtifacts
+Outcome: OutcomeTrue
+Location: path/to/binary.exe
+
+Probe: hasBinaryArtifacts
+Outcome: OutcomeTrue
+Location: testdata/fixture.bin
+```
+
+## Example probes
+
+These probes cover a range of security behaviors:
+
+- **`hasBinaryArtifacts`** — detects binary files committed to the source tree
+- **`fuzzed`** — detects whether the project uses a fuzzing tool
+- **`securityPolicyPresent`** — checks for a `SECURITY.md` or equivalent file
+- **`pinsDependencies`** — detects unpinned dependencies in Dockerfiles, shell scripts, and GitHub Actions workflows
+- **`requiresApproversForPullRequests`** — checks whether branch protection requires PR approvals
+- **`sastToolConfigured`** — detects whether a SAST tool is configured
+
+For descriptions, outcomes, and lifecycle state for every probe, see the [probes reference](/probes/reference).
